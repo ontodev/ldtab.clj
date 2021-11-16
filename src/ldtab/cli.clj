@@ -1,5 +1,7 @@
 (ns ldtab.cli
-  (:require [clojure.tools.cli :refer [parse-opts]])
+  (:require [clojure.tools.cli :refer [parse-opts]]
+            [ldtab.prefix :as prefix] 
+            )
   (:gen-class))
 
 (def cli-options
@@ -11,16 +13,16 @@
 
 ;TODO: implement options for subcommands
 (def init-options
-  [["-h" "--help"]])
+  [["-h" "--help init"]])
 
 (def prefix-options
-  [["-h" "--help"]])
+  [["-h" "--help prefix"]])
 
 (def import-options
-  [["-h" "--help"]])
+  [["-h" "--help import"]])
 
 (def export-options
-  [["-h" "--help"]])
+  [["-h" "--help export"]])
 
 (defn parse-subcommand
   [command]
@@ -33,6 +35,23 @@
       (= subcommand "export") (parse-opts command export-options :in-order true)
       :else "print help")));TODO: define help message
 
+(defn execute-prefix-command 
+  [prefixes-path db-path]
+  (prefix/insert-prefixes prefixes-path db-path))
+
+(defn execute-subcommand
+  [parse-map]
+  (let [command (:arguments parse-map)
+        subcommand (first command)]
+    (cond 
+      (= subcommand "init") (println "Work in progress")
+      (= subcommand "prefix") (execute-prefix-command (nth command 1) (nth command 2))
+      (= subcommand "import") (println "Work in progress")
+      (= subcommand "export") (println "Work in progress")
+      :else "Incorrect command")));TODO: define help message
+
 
 (defn -main [& args]
-  (println (parse-subcommand (:arguments (parse-opts args cli-options :in-order true)))))
+  (println (parse-subcommand (:arguments (parse-opts args cli-options :in-order true))))
+  (execute-subcommand (parse-subcommand (:arguments (parse-opts args cli-options :in-order true)))))
+
