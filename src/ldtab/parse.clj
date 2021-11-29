@@ -6,88 +6,7 @@
            [org.apache.jena.graph NodeFactory Triple] 
            [org.apache.jena.riot RDFDataMgr Lang])) 
 
-(defn statement-to-string
-  [statement] 
-     (let [subject (.getSubject statement)
-           subject-rendering (if (.isBlank (.asNode subject))
-                                 (str "_:" (.getBlankNodeLabel (.asNode subject)))
-                                 (.toString subject))
-           predicate (.getPredicate statement)
-           predicate-rendering (.toString predicate)
-           object (.getObject statement)
-           object-rendering (if (.isBlank (.asNode object))
-                                 (str "_:" (.getBlankNodeLabel (.asNode object)))
-                                 (.toString object))] 
-       [subject-rendering predicate-rendering object-rendering]))
-
-(defn get-blank-node-objects
-  [statements]
-  (let [objects (map #(.getObject %) statements)
-        blanknodes (filter #(.isBlank (.asNode %)) objects)]
-    (distinct blanknodes)) )
-
-(defn get-stanza
-  [subject model]
-    (let [triples (.listStatements model subject nil nil) 
-          tripleList (seq (.toList triples))
-          blank-nodes (get-blank-node-objects tripleList) 
-          blank-node-dependencies (map #(get-stanza % model) blank-nodes)
-          res (reduce concat blank-node-dependencies)
-          res (concat tripleList res)]
-      res))
-
-;from a model
 (defn get-root-subjects
-  [model]
-  (let [subjects (set (seq (.toList (.listSubjects model))))
-        objects (set (filter #(.isBlank (.asNode %)) (seq (.toList (.listObjects model)))))
-        root (filter #(not (contains? objects %)) subjects)]
-    root))
-
-(defn as-thin-triples-streamed
-  [input]
-  (let [in (RDFDataMgr/open input)
-        model (time (.read (ModelFactory/createDefaultModel) in ""))
-        root-subjects (time (get-root-subjects model))
-        subject-stanzas (time (map #(get-stanza % model) root-subjects))]
-   subject-stanzas))
-
-;NB: don't use this
-;this implementation is just a reference for testing/validation purposes
-(defn as-thin-triples
-  [input] 
-   (def in (RDFDataMgr/open input))
-
-   (def model (ModelFactory/createDefaultModel)) 
-   (.read model in "") 
-
-   (def iter (.listStatements model)) 
-   (def res '())
-   (while (.hasNext iter)
-     (let [statement (.nextStatement iter)
-           subject (.getSubject statement)
-           subject-rendering (if (.isBlank (.asNode subject))
-                                 (str "_:" (.getBlankNodeLabel (.asNode subject)))
-                                 (.toString subject))
-           predicate (.getPredicate statement)
-           predicate-rendering (.toString predicate)
-           object (.getObject statement)
-           object-rendering (if (.isBlank (.asNode object))
-                                 (str "_:" (.getBlankNodeLabel (.asNode object)))
-                                 (.toString object))]
-       (def res (conj res [subject-rendering predicate-rendering object-rendering]))))
-   res) 
-
-
-;=============================================
-;=============================================
-;=============================================
-;=============================================
-
-;get a list of triples - resolve dependencies
-;buld map (root) subject to blank node dependency
-
-(defn get-root-subjects-from-triples
   [triples]
   (let [subjects (distinct (map #(.getSubject %) triples)) 
         objects (set (filter #(.isBlank %) (map #(.getObject %) triples)))
@@ -96,6 +15,8 @@
 
 (defn get-triples
   [it n]
+  """Given a stream of triples and a natural number n,
+    return the next n triples from the stream."""
    (loop [x 0
           triples '()]
      (if (and (.hasNext it)
@@ -115,7 +36,6 @@
     (into () (remove nil? (s/union direct indirect)))))
 
 
-;TODO:  filter out nils?
 (defn get-blanknode-dependency-map
   [triples]
   (let [subject-map (group-by #(.getSubject %) triples)
@@ -125,19 +45,22 @@
         dependency-map (map #(get-blanknode-dependency % subject-2-blanknode) subjects)]
     (zipmap subjects dependency-map)))
 
-;TODO: test that this works
 ;check whether a subject has unresolved blank node dependencies in a set of triples
 ;a subject is resolved if all its blank node depenencies are resolved
 ;a bank node is resolved if it has an empty blank nod dependecy l ist
-(defn resolved?
-  [subject triples] 
-  (let [dependency-map (get-blanknode-dependency-map triples)
-        subject-dependency (get dependency-map subject)]
+(defn resolved?-helper
+  [subject triples dependency-map]
+  (let [subject-dependency (get dependency-map subject)]
     (cond
       (and (.isBlank subject)
            (not (contains? dependency-map subject))) false
       (empty? subject-dependency) true
-      :else (every? #(resolved? % triples) subject-dependency))))
+      :else (every? #(resolved?-helper % triples dependency-map) subject-dependency))))
+
+(defn resolved?
+  [subject triples] 
+  (let [dependency-map (get-blanknode-dependency-map triples)]
+    (resolved?-helper subject triples dependency-map))) 
 
 (defn thin-triple?
   [triple]
@@ -155,18 +78,12 @@
   [dependencies triples]
   (some #(occurs-in? % triples) dependencies))
 
-(defn get-thick-triple
-  [subject triples]
-  (filter #(and (.equals (.getSubject %) subject)
-                (.isBlank (.getObject %))) triples) )
-
-
-(defn get-stanza-triples
+(defn get-stanza
   [subject triples]
     (let [root (filter #(.equals (.getSubject %) subject) triples)
           objects (map #(.getObject %) root)
           dependencies (filter #(.isBlank %) objects)
-          resolved (map #(get-stanza-triples % triples) dependencies)
+          resolved (map #(get-stanza % triples) dependencies)
           res (reduce concat resolved)
           res (concat root res)]
       res))
@@ -178,6 +95,20 @@
         rv (map conj v k)]
     (zipmap k rv))) 
 
+(defn fetch-new-window
+  [it windowsize]
+  (let [new-triples (get-triples it windowsize) ;extract windowsize many new triples ; 
+        thin-triples (filter thin-triple? new-triples)
+        new-thick-triples (into () (s/difference (set new-triples) (set thin-triples)))]
+    [new-triples thin-triples new-thick-triples])) 
+
+(defn process-backlog
+  [backlog-triples]
+  (let [blank-node-dependency (get-blanknode-dependency-map backlog-triples);TODO: instead of recomputing this, it could be updated & maintained
+        roots (get-root-subjects backlog-triples)
+        resolved (set (filter #(resolved?-helper % backlog-triples blank-node-dependency) roots));TODO you don't have to recompute these every time
+        not-resolved (set (filter #(not (resolved?-helper % backlog-triples blank-node-dependency)) roots))]
+    [resolved not-resolved blank-node-dependency]))
 
 ;TODO refactor this
 ;TODO test this
@@ -190,33 +121,33 @@
       [thin-triples thick-triples '()])
 
     (let [;(A) setup data structures for previous window of triples
-          old-blank-node-dependency (get-blanknode-dependency-map backlog-triples)
-          old-blank-node-dependency-r (reflexive old-blank-node-dependency) 
-          old-triples-roots (get-root-subjects-from-triples backlog-triples)
-          resolved-subjects-old (set (filter #(resolved? % backlog-triples) old-triples-roots))
-          not-resolved-subjects-old (set (filter #(not (resolved? % backlog-triples)) old-triples-roots))
-          
-          ;(B) fetch new data
-          new-triples (get-triples it windowsize) ;extract windowsize many new triples ; 
-          thin-triples (filter thin-triple? new-triples) ;get thin-triples which are to be returned
+          [resolved not-resolved backlog-blank-node-dependency] (process-backlog backlog-triples);TODO: speed this up
+
+          ;(B) fetch new window of triples
+          [new-triples thin-triples new-thick-triples] (fetch-new-window it windowsize) 
+
           old-and-new-triples (concat backlog-triples new-triples)
-          new-thick-triples (into () (s/difference (set new-triples) (set thin-triples))); (these will also be kept)
+          backlog-blank-node-dependency-r (reflexive backlog-blank-node-dependency)
 
           ;(C) check for updates of old data in new triples 
 
           ;(C-1) identify resolved subjects WITH NO updates (these will be returned)
-          resolved-subjects-no-updates (set (filter #(not (has-updates? (get old-blank-node-dependency-r %) new-triples)) resolved-subjects-old)) 
-          resolved-subjects-no-updates-triples (map #(get-stanza-triples % backlog-triples) resolved-subjects-no-updates)
+          resolved-no-updates (set (filter #(not (has-updates? (get backlog-blank-node-dependency-r %) new-triples)) resolved)) 
+          resolved-no-updates-triples (map #(get-stanza % backlog-triples) resolved-no-updates)
+          ;TODO: filter out thin triples (that are part of the stanza)?
 
           ;(C-2) identify resolved subjects WITH updates (these will be kept for the next call)
-          resolved-subjects-with-updates (set (filter #(has-updates? (get old-blank-node-dependency-r %) new-triples) resolved-subjects-old)) 
-          resolved-subjects-with-updates-triples (map #(get-stanza-triples % old-and-new-triples) resolved-subjects-with-updates)
+          resolved-with-updates (set (filter #(has-updates? (get backlog-blank-node-dependency-r %) new-triples) resolved)) 
+          resolved-with-updates-triples (map #(get-stanza % old-and-new-triples) resolved-with-updates)
+          ;TODO: filter out thin triples (that are part of the stanza)?
 
           ;(C-3) get updates for unresolved subjects (these will be kept for the next call)
-          unresolved-subjects-triples (map #(get-stanza-triples % old-and-new-triples) not-resolved-subjects-old) 
-          thick-triples (flatten (concat new-thick-triples resolved-subjects-with-updates-triples unresolved-subjects-triples))] 
+          unresolved-subjects-triples (map #(get-stanza % old-and-new-triples) not-resolved) 
 
-      [thin-triples thick-triples resolved-subjects-no-updates-triples])))
+          ;TODO: this results in many duplicates - this may be avoided
+          thick-triples (flatten (concat new-thick-triples resolved-with-updates-triples unresolved-subjects-triples))]
+
+      [thin-triples (distinct thick-triples) resolved-no-updates-triples])))
 
 
 ;THIS DOESN'T work because triples are not in the correct order
@@ -259,14 +190,19 @@
   "Currently only used for manual testing."
   [& args] 
 
-  (def is (new FileInputStream (first args) )) 
-  (def it (RDFDataMgr/createIteratorTriples is Lang/RDFXML "bas"))
-  ;(def it (RDFDataMgr/createIteratorTriples is Lang/NT "bas")) ;use window of size 10
 
-  (def a (parse-window it 100 '()))
-  (print-process a) 
-  (def aa (parse-window it 100 (second a)))
-  (print-process aa) 
+
+  ;(def a (parse-window it 600 '()))
+  ;(print-process a) 
+  ;(def aa (parse-window it 600 (second a))) 
+  ;(print-process aa) 
+  ;(def aaa (parse-window it 600 (second aa)))
+  ;(print-process aaa) 
+  ;(def aaaa (parse-window it 600 (second aaa)))
+  ;(print-process aaaa) 
+  ;(def aaaaa (parse-window it 600 (second aaaa)))
+  ;(print-process aaaaa) 
+
 
 
    ;(def stanzas (as-thin-triples-streamed (first args)))
