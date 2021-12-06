@@ -1,5 +1,6 @@
 (ns ldtab.parse
-  (:require [clojure.set :as s])
+  (:require [clojure.set :as s]
+            [wiring.util.thickTriples :as util])
   (:import [org.apache.jena.rdf.model Model ModelFactory Resource]
            [org.apache.jena.riot.system StreamRDFBase]
            [java.io InputStream FileInputStream] 
@@ -8,6 +9,8 @@
 
 (defn get-root-subjects
   [triples]
+  """Given a set of triples,
+    return the set of root subjects w.r.t. blank node dependencies"""
   (let [subjects (distinct (map #(.getSubject %) triples)) 
         objects (set (filter #(.isBlank %) (map #(.getObject %) triples)))
         root (filter #(not (contains? objects %)) subjects)]
@@ -31,14 +34,20 @@
 
 (defn get-blanknode-dependency
   [subject subject-2-blanknode]
+  """Given a subject and a (direct) map from subjects to blank node dependencies,
+  return the transitive closure of blank node dependencies for the subject."""
   (let [direct (get subject-2-blanknode subject)
+        ;TODO: You don't need to recompute this for all nodes - 
+        ;you could work in a bottom-up fashion (however, this shouldn't speed things up too drastically)
         indirect (flatten (map #(get-blanknode-dependency % subject-2-blanknode) direct))]
     (into () (remove nil? (s/union direct indirect)))))
 
 
 (defn get-blanknode-dependency-map
   [triples]
-  (let [subject-map (group-by #(.getSubject %) triples)
+  """Given a set of triples,
+    return a map from subjects to (direct) blank node dependencies."""
+  (let [subject-map (group-by #(.getSubject %) triples) ;TODO this is somewhat expensive?
         subject-2-object (map-on-hash-map-vals (fn [x] (map (fn [y] (.getObject y)) x)) subject-map)
         subject-2-blanknode (map-on-hash-map-vals (fn [x] (filter (fn [y] (.isBlank y)) x)) subject-2-object)
         subjects (map #(.getSubject %) triples)
@@ -59,7 +68,10 @@
 
 (defn resolved?
   [subject triples] 
+  """Given a subject and a set of triples,
+    check whether this subject can be represented as a thick triple."""
   (let [dependency-map (get-blanknode-dependency-map triples)]
+    ;NB: the helper function is used to avoid the recomputation of the dependency-map
     (resolved?-helper subject triples dependency-map))) 
 
 (defn thin-triple?
@@ -71,11 +83,15 @@
 
 (defn occurs-in?
   [subject triples]
+  """Given a subject and a set of triples,
+    test whether there exists a triple in which the input subject occurs as a subject."""
   (let [subjects (set (map #(.getSubject %) triples))]
     (contains? subjects subject)))
 
 (defn has-updates?
   [dependencies triples]
+  """Given a set of blank nodes (dependencies),
+    test whether they occur in the given set of triples."""
   (some #(occurs-in? % triples) dependencies))
 
 (defn get-stanza
@@ -90,6 +106,8 @@
 
 (defn reflexive 
   [m]
+  """Given a graph structure represented by a map,
+    return the map so that it is reflexive.""" 
   (let [k (keys m)
         v (vals m)
         rv (map conj v k)]
@@ -97,7 +115,7 @@
 
 (defn fetch-new-window
   [it windowsize]
-  (let [new-triples (get-triples it windowsize) ;extract windowsize many new triples ; 
+  (let [new-triples (get-triples it windowsize) ;extract windowsize many new triples
         thin-triples (filter thin-triple? new-triples)
         new-thick-triples (into () (s/difference (set new-triples) (set thin-triples)))]
     [new-triples thin-triples new-thick-triples])) 
@@ -110,8 +128,8 @@
         not-resolved (set (filter #(not (resolved?-helper % backlog-triples blank-node-dependency)) roots))]
     [resolved not-resolved blank-node-dependency]))
 
-;TODO refactor this
-;TODO test this
+
+;TODO: implement guard against ever growing window of backlog-triples
 (defn parse-window
   [it windowsize backlog-triples]
   (if (empty? backlog-triples)
@@ -121,7 +139,7 @@
       [thin-triples thick-triples '()])
 
     (let [;(A) setup data structures for previous window of triples
-          [resolved not-resolved backlog-blank-node-dependency] (process-backlog backlog-triples);TODO: speed this up
+          [resolved not-resolved backlog-blank-node-dependency] (process-backlog backlog-triples);TODO: speed this up? Is this possible? only by a factgor of 2 as far as I can see
 
           ;(B) fetch new window of triples
           [new-triples thin-triples new-thick-triples] (fetch-new-window it windowsize) 
@@ -131,22 +149,25 @@
 
           ;(C) check for updates of old data in new triples 
 
+          ;TODO you may not want to collect stanzas here since they include thin triples that will need to be filtered out later
           ;(C-1) identify resolved subjects WITH NO updates (these will be returned)
           resolved-no-updates (set (filter #(not (has-updates? (get backlog-blank-node-dependency-r %) new-triples)) resolved)) 
           resolved-no-updates-triples (map #(get-stanza % backlog-triples) resolved-no-updates)
-          ;TODO: filter out thin triples (that are part of the stanza)?
 
-          ;(C-2) identify resolved subjects WITH updates (these will be kept for the next call)
+          ;(C-2) identify resolved subjects WITH updates
+          ;note that their stanza needs to be collected from 'old-and-new-triples' 
+          ;(these will be kept for the next call)
           resolved-with-updates (set (filter #(has-updates? (get backlog-blank-node-dependency-r %) new-triples) resolved)) 
           resolved-with-updates-triples (map #(get-stanza % old-and-new-triples) resolved-with-updates)
-          ;TODO: filter out thin triples (that are part of the stanza)?
 
           ;(C-3) get updates for unresolved subjects (these will be kept for the next call)
           unresolved-subjects-triples (map #(get-stanza % old-and-new-triples) not-resolved) 
 
-          ;TODO: this results in many duplicates - this may be avoided
+          ;TODO: thick-triples can contain duplicates - this may be avoided (should?)
           thick-triples (flatten (concat new-thick-triples resolved-with-updates-triples unresolved-subjects-triples))]
 
+          ;TODO resolved-no-updates-triples contain thin triples - these could be filtered out
+          ;(map #(filter (fn [x] (not (thin-triple? x))) %) resolved-no-updates-triples)
       [thin-triples (distinct thick-triples) resolved-no-updates-triples])))
 
 
@@ -190,33 +211,6 @@
   "Currently only used for manual testing."
   [& args] 
 
-
-
-  ;(def a (parse-window it 600 '()))
-  ;(print-process a) 
-  ;(def aa (parse-window it 600 (second a))) 
-  ;(print-process aa) 
-  ;(def aaa (parse-window it 600 (second aa)))
-  ;(print-process aaa) 
-  ;(def aaaa (parse-window it 600 (second aaa)))
-  ;(print-process aaaa) 
-  ;(def aaaaa (parse-window it 600 (second aaaa)))
-  ;(print-process aaaaa) 
-
-
-
-   ;(def stanzas (as-thin-triples-streamed (first args)))
-   ;(run! println (map #(map statement-to-string %) stanzas)) 
-
-   ;(println (count (as-thin-triples (first args))))
-   ;(println (reduce + (map count (as-thin-triples-streamed (first args)))))
-   ;(println (count (seq (.toList (.listStatements model)))))
-
-   ;(println (filter #(not (= 3 (count %))) (as-thin-triples (first args)))) 
-
-   ;(def model (ModelFactory/createDefaultModel)) 
-   ;(.read model in "") 
-   ;(.write model System/out) 
 )
 
 
