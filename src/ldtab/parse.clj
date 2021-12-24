@@ -1,11 +1,41 @@
 (ns ldtab.parse
   (:require [clojure.set :as s]
-            [wiring.util.thickTriples :as util])
+            [wiring.util.thickTriples :as util]
+            [clojure.string :as string])
   (:import [org.apache.jena.rdf.model Model ModelFactory Resource]
            [org.apache.jena.riot.system StreamRDFBase]
            [java.io InputStream FileInputStream] 
            [org.apache.jena.graph NodeFactory Triple] 
            [org.apache.jena.riot RDFDataMgr Lang])) 
+
+(defn get-annotation-triples
+  [thick-triples]
+  (filter #(or (= (:predicate %) "owl:Annotation")
+               (= (:predicate %) "owl:Axiom")) thick-triples))
+
+;TODO use configurable prefixes
+(defn curify
+  [triple]
+  (let [owl (map #(string/replace % #"http://www.w3.org/2002/07/owl#" "owl:") triple) 
+        rdf (map #(string/replace % #"http://www.w3.org/1999/02/22-rdf-syntax-ns#" "rdf:") owl) 
+        rdfs (map #(string/replace % #"http://www.w3.org/2000/01/rdf-schema#" "rdfs:") rdf)]
+    rdfs)) 
+
+(defn jena-triple-2-string
+  [triple] 
+     (let [subject (.getSubject triple)
+           subject-rendering (if (.isBlank subject)
+                                 (str "_:" (.getBlankNodeLabel subject))
+                                 (.toString subject))
+           predicate (.getPredicate triple)
+           predicate-rendering (.toString predicate)
+           object (.getObject triple)
+           object-rendering (if (.isBlank object)
+                                 (str "_:" (.getBlankNodeLabel object))
+                                 (.toString object))
+           triple [subject-rendering predicate-rendering object-rendering]          
+           curiefied (curify triple)] 
+       curiefied))
 
 (defn get-root-subjects
   [triples]
