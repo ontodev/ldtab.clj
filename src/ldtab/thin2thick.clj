@@ -11,27 +11,6 @@
            [org.apache.jena.riot RDFDataMgr Lang])
   (:gen-class))
 
-
-
-(defn is-rdf-literal?
-  [string]
-  (when (string? string)
-    (re-matches #"^\".*\".*$" string))) 
-
-;TODO do this with jena
-(defn get-literal-string
-  [string]
- (second (re-matches #"^\"(.*)\".*$" string)))
-
-(defn has-language-tag?
-  [literal]
-  (re-matches #"^\"(.*)\"(@.*)$" literal))
-
-(defn has-datatype?
-  [literal]
-  (re-matches #"^\"(.*)\"(\^\^.*)$" literal))
-
-
 (declare node-2-thick-map)
 
 (defn map-on-hash-map-vals
@@ -42,6 +21,22 @@
   then (map-on-hash-map-vals f m) = {:a 2, :b 3}"
   [f m]
   (zipmap (keys m) (map f (vals m)))) 
+
+
+(defn is-rdf-type?
+  [string]
+  (or (= string "rdf:type")
+      (= string "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>")
+      (= string "http://www.w3.org/1999/02/22-rdf-syntax-ns#type")))
+
+(defn get-type
+  [triples]
+  (let [typing-triples (filter #(is-rdf-type? (.getURI (.getPredicate %))) triples)
+        number-of-types (count typing-triples)]
+    (cond
+      (= number-of-types 0) (NodeFactory/createURI "unknown")
+      (= number-of-types 1) (.getObject (first typing-triples))
+      :else (NodeFactory/createURI "ambiguous"))))
 
 
 (defn encode-blank-nodes
@@ -79,16 +74,29 @@
         blank-roots (filter #(.isBlank %) root)
 
         additions (map #(new Triple (NodeFactory/createURI (str "wiring:blanknode:" (gensym))) 
-                                    (NodeFactory/createURI "wiring:blanknode") 
+                                    ;(NodeFactory/createURI "wiring:blanknode") 
+                                    (get-type (get subject-to-triples %)) 
                                     %) blank-roots)] 
 
     (concat triples additions)))
 
+(defn get-datatype 
+  [node]
+  (cond 
+    (.isBlank node) "_json"
+    (.isURI node) "_IRI"
+    ;NB: Jena can't identify plain literals
+    (.isLiteral node) (str (.getLiteralDatatypeURI node)
+                           (.getLiteralLanguage node))
+    :else "ERROR"))
+
+;TODO: stringify objects  (+ extract literal values from literals)
 (defn encode-object
   "Given a triple t = [s p o] and a map from subject nodes to its triples,
   returns predicate map for the o" 
   [triple subject-2-thin-triples]
-  (hash-map :object (node-2-thick-map (.getObject triple) subject-2-thin-triples)))
+  (hash-map :object (node-2-thick-map (.getObject triple) subject-2-thin-triples),
+            :datatype (get-datatype (.getObject triple))))
 
 (defn node-2-thick-map
   "Given a node and a map from subject nodes to its triples,
@@ -152,102 +160,25 @@
         subject (node-2-thick-map s subject-2-thin-triples)
         predicate (node-2-thick-map p subject-2-thin-triples)
         object (node-2-thick-map o subject-2-thin-triples)]
-    {:subject subject, :predicate predicate, :object object}))) 
+    {:subject subject, :predicate predicate, :object object, :datatype (get-datatype o)}))) 
 
-
-(declare encode-literals)
-
-(defn encode-literal
-  "Encode a single literal as described by 'encode-literals'"
-  [predicate-map] 
-  (let [object (:object predicate-map)
-        literal-value (get-literal-string object)
-        language-tag (has-language-tag? object)
-        datatype (has-datatype? object)
-        has-thick-datatype (or language-tag datatype)]
-    (if has-thick-datatype
-      (assoc predicate-map :object literal-value
-             :datatype (nth has-thick-datatype 2))
-      (assoc predicate-map :object literal-value
-                           :datatype "_plain"))))
-
-(defn handle-object
-  "Given a predicate map, update its JSON structure by
-  (1) encoding an RDF literal if it occurs as an :object,  
-  (2) recurse if :object is an JSON object or array 
-  (3) return the predicate-map otherwise."
-  [predicate-map]
-    (let [object (:object predicate-map)]
-      (cond (is-rdf-literal? object) (encode-literal predicate-map) 
-            ;recurse
-            (map? object) (update predicate-map :object encode-literals) 
-            (coll? object) (update predicate-map :object #(map encode-literals %))
-            ;base case
-            :else predicate-map)))
-
-;NB thick-triple has to be passed around instead of (:object thick-triple)
-;because we need to modify the map 'thick-triple' and not just (:object thick-triple)
-(defn encode-literals
-  "Given a thick-triple,
-  search for RDF literals that appear as :object in the thick-triple,
-  extract their datatypes and language tags (if present), and
-  encode them as :datatype in the corresponding predicate map.
-  Example:
-  {:subject a:Peter, :predicate rdfs:label, :object \"Peter Griffin\"@en}
-  will be encoded as 
-  {:subject a:Peter, :predicate rdfs:label, :object \"Peter Griffin\" :datatype @en}."
-  [thick-triple]
-  (if (map? thick-triple)
-    ;predicate maps are only changed in case an :object contains an RDF literal
-    ;otherwise, the algorithm only needs to traverse the whole JSON structure
-    (let [object-handled (handle-object thick-triple)
-          rest-handled (map-on-hash-map-vals #(cond ;JSON traversal
-                                                (map? %) (encode-literals %)
-                                                (coll? %) (into [] (map encode-literals %))
-                                                :else %)
-                                             (dissoc thick-triple :object))]
-      (if (:object object-handled)
-        (let [encoding (assoc rest-handled :object (:object object-handled))]
-          (if (contains? object-handled :datatype)
-            (assoc encoding :datatype (:datatype object-handled))
-            encoding))
-        rest-handled))
-    thick-triple)) 
-
-(defn encode-json-objects
-  "Given a predicate map m, associate :objects with _json datatypes"
-  [m]
-    (cond
-      (map? (:object m)) (map-on-hash-map-vals encode-json-objects (assoc m :datatype "_json")) 
-      (map? m) (map-on-hash-map-vals encode-json-objects m) 
-      (coll? m) (map encode-json-objects m) 
-      :else m))
-
-;TODO: this should be unnecessary when working with Jena
-(defn encode-iris
-  "Given a predicate map m, associate :objects with _iri datatypes"
-  [m]
-    (cond
-      (and
-        (map? m)
-        (contains? m :object)
-        (not (contains? m :datatype))) (map-on-hash-map-vals encode-iris (assoc m :datatype "_iri")) 
-      (map? m) (map-on-hash-map-vals encode-iris m) 
-      (coll? m) (map encode-iris m) 
-      :else m))
+(defn is-meta-statement
+  [rawThickTriple]
+  (let [predicate (:predicate rawThickTriple)]
+    (if (.isURI predicate)
+      (let [uri (.getURI predicate)]
+        (or (= uri "http://www.w3.org/2002/07/owl#Annotation")
+            (= uri "http://www.w3.org/2002/07/owl#Axiom")
+            (= uri "http://www.w3.org/1999/02/22-rdf-syntax-ns#Statement")))
+      nil)))
 
 (defn thin-2-thick
   [triples]
   (let [raw-thick-triples (thin-2-thick-raw triples)
-        annotations (map #(if (or (= (:predicate %) "owl:Annotation")
-                                    (= (:predicate %) "owl:Axiom")
-                                    (= (:predicate %) "rdf:Statement"))
-                              (ann/encode-raw-annotation-map (:object %)) 
-                              %) raw-thick-triples)
-        literals (map encode-literals annotations)
-        json-maps (map encode-json-objects literals)
-        iris (map encode-iris json-maps)
-        sorted (map sort-json iris)
+        annotations (map #(if (is-meta-statement %)
+                              (ann/encode-raw-annotation-map (:object %)) ;;TODO
+                              %) raw-thick-triples) 
+        sorted (map sort-json annotations)
         normalised (map #(cs/parse-string (cs/generate-string %)) sorted)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
     normalised))
 
@@ -266,9 +197,8 @@
               ;encoded (map encode-blank-nodes thick) 
               ;root-triples (map root-triples encoded)
               raw (map #(first (thin-2-thick-raw %)) thick)
-              
+              ex (:subject (first raw))
               ]
-          (println raw)
 
           (recur kept)))))
 
