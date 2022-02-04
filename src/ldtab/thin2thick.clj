@@ -102,7 +102,6 @@
                            (.getLiteralLanguage node))
     :else "ERROR"))
 
-;TODO: stringify objects  (+ extract literal values from literals)
 (defn encode-object
   "Given a triple t = [s p o] and a map from subject nodes to its triples,
   returns predicate map for the o" 
@@ -116,11 +115,10 @@
   2. Literal Value for Literals"
   [node]
   (cond
-    (.isURI node) (curify (.getURI node)) ;TODO
+    (.isURI node) (curify (.getURI node)) 
     ;NB: Jena can't identify plain literals
     (.isLiteral node) (.getLiteralValue node)
     :else "ERROR"))
-
 
 (defn node-2-thick-map
   "Given a node and a map from subject nodes to its triples,
@@ -186,22 +184,15 @@
         object (node-2-thick-map o subject-2-thin-triples)]
     {:subject subject, :predicate predicate, :object object, :datatype (get-datatype o)}))) 
 
-(defn is-meta-statement
-  [rawThickTriple]
-  (let [predicate (:predicate rawThickTriple)]
-    (if (.isURI predicate)
-      (let [uri (.getURI predicate)]
-        (or (= uri "http://www.w3.org/2002/07/owl#Annotation")
-            (= uri "http://www.w3.org/2002/07/owl#Axiom")
-            (= uri "http://www.w3.org/1999/02/22-rdf-syntax-ns#Statement")))
-      nil)))
 
 (defn thin-2-thick
   [triples]
   (let [raw-thick-triples (thin-2-thick-raw triples)
-        annotations (map #(if (is-meta-statement %)
-                              (ann/encode-raw-annotation-map (:object %)) ;;TODO
-                              %) raw-thick-triples) 
+        annotations (map #(if (or (= (:predicate %) "owl:Annotation")
+                                    (= (:predicate %) "owl:Axiom")
+                                    (= (:predicate %) "rdf:Statement"))
+                              (ann/encode-raw-annotation-map (:object %)) 
+                              %) raw-thick-triples)
         sorted (map sort-json annotations)
         normalised (map #(cs/parse-string (cs/generate-string %)) sorted)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
     normalised))
@@ -220,7 +211,9 @@
         (let [[thin kept thick] (parse/parse-window it windowsize backlog)
               ;encoded (map encode-blank-nodes thick) 
               ;root-triples (map root-triples encoded)
-              raw (map #(first (thin-2-thick-raw %)) thick)
+
+              ;raw (map #(first (thin-2-thick-raw %)) thick)
+              raw (map #(first (thin-2-thick %)) thick)
               ex (:subject (first raw))
               ]
           ;(when ex
