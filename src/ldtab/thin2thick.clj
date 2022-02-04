@@ -22,6 +22,10 @@
   [f m]
   (zipmap (keys m) (map f (vals m)))) 
 
+(defn map-on-hash-map-keys
+  [f m]
+  (zipmap (map f (keys m)) (vals m)))
+
 
 (defn is-rdf-type?
   [string]
@@ -98,6 +102,18 @@
   (hash-map :object (node-2-thick-map (.getObject triple) subject-2-thin-triples),
             :datatype (get-datatype (.getObject triple))))
 
+(defn encode-node
+  "Given a Jena Node, return String for 
+  1. URIs (:TODO use CURIES?) 
+  2. Literal Value for Literals"
+  [node]
+  (cond
+    (.isURI node) (.getURI node) ;TODO
+    ;NB: Jena can't identify plain literals
+    (.isLiteral node) (.getLiteralValue node)
+    :else "ERROR"))
+
+
 (defn node-2-thick-map
   "Given a node and a map from subject nodes to its triples,
     returns a predicate map if its a blank node
@@ -106,12 +122,12 @@
   ;(println node)
   (if (.isBlank node)
     (let [triples (get subject-2-thin-triples node)
-          predicates (group-by #(.getPredicate %) triples)]; create predicate map 
-      ;(println predicates)
+          predicates (group-by #(.getPredicate %) triples)
+          predicates (map-on-hash-map-keys encode-node predicates)] 
       (map-on-hash-map-vals ;encode objects recursively
         #(into [] (map (fn [x] (encode-object x subject-2-thin-triples)) %))
         predicates)) 
-    node)) 
+    (encode-node node)))
 
 (defn root-triples
   "Given a set of thin triples,
@@ -199,6 +215,13 @@
               raw (map #(first (thin-2-thick-raw %)) thick)
               ex (:subject (first raw))
               ]
+          ;(when ex
+          ;  (when (.isURI ex)
+          ;    (println (.getURI ex))))
+          ;(when ex
+          ;  (when (some is-meta-statement raw) ;TODO: can't just look at the firs tone (need a map
+          ;    (println raw)))
+          (println raw)
 
           (recur kept)))))
 
