@@ -13,6 +13,14 @@
 
 (declare node-2-thick-map)
 
+;TODO: add support for user input prefixes
+(defn curify
+  [s]
+  (let [owl (string/replace s #"http://www.w3.org/2002/07/owl#" "owl:") 
+        rdf (string/replace owl #"http://www.w3.org/1999/02/22-rdf-syntax-ns#" "rdf:") 
+        rdfs (string/replace rdf #"http://www.w3.org/2000/01/rdf-schema#" "rdfs:")]
+    rdfs)) 
+
 (defn map-on-hash-map-vals
   "Given a hashmap m and a function f, 
   apply f to all values of m.
@@ -108,7 +116,7 @@
   2. Literal Value for Literals"
   [node]
   (cond
-    (.isURI node) (.getURI node) ;TODO
+    (.isURI node) (curify (.getURI node)) ;TODO
     ;NB: Jena can't identify plain literals
     (.isLiteral node) (.getLiteralValue node)
     :else "ERROR"))
