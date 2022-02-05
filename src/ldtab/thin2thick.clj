@@ -31,9 +31,10 @@
   (zipmap (keys m) (map f (vals m)))) 
 
 (defn map-on-hash-map-keys
+  "Given a hashmap m and a function f, 
+  apply f to all keys of m."
   [f m]
-  (zipmap (map f (keys m)) (vals m)))
-
+  (zipmap (map f (keys m)) (vals m))) 
 
 (defn is-rdf-type?
   [string]
@@ -48,8 +49,7 @@
     (cond
       (= number-of-types 0) (NodeFactory/createURI "unknown")
       (= number-of-types 1) (.getObject (first typing-triples))
-      :else (NodeFactory/createURI "ambiguous"))))
-
+      :else (NodeFactory/createURI "ambiguous")))) 
 
 (defn encode-blank-nodes
   [triples]
@@ -116,7 +116,6 @@
   [node]
   (cond
     (.isURI node) (curify (.getURI node)) 
-    ;NB: Jena can't identify plain literals
     (.isLiteral node) (.getLiteralValue node)
     :else "ERROR"))
 
@@ -125,7 +124,6 @@
     returns a predicate map if its a blank node
     and itself otherwise" 
   [node subject-2-thin-triples]
-  ;(println node)
   (if (.isBlank node)
     (let [triples (get subject-2-thin-triples node)
           predicates (group-by #(.getPredicate %) triples)
