@@ -8,11 +8,6 @@
            [org.apache.jena.graph NodeFactory Triple] 
            [org.apache.jena.riot RDFDataMgr Lang])) 
 
-(defn get-annotation-triples
-  [thick-triples]
-  (filter #(or (= (:predicate %) "owl:Annotation")
-               (= (:predicate %) "owl:Axiom")) thick-triples))
-
 ;TODO use configurable prefixes
 (defn curify
   [triple]
@@ -21,6 +16,7 @@
         rdfs (map #(string/replace % #"http://www.w3.org/2000/01/rdf-schema#" "rdfs:") rdf)]
     rdfs)) 
 
+;used to make triples usable in wiring
 (defn jena-triple-2-string
   [triple] 
      (let [subject (.getSubject triple)
@@ -147,7 +143,7 @@
   [it windowsize]
   (let [new-triples (get-triples it windowsize) ;extract windowsize many new triples
         thin-triples (filter thin-triple? new-triples)
-        new-thick-triples (into () (s/difference (set new-triples) (set thin-triples)))]
+        new-thick-triples (remove thin-triple? new-triples)]
     [new-triples thin-triples new-thick-triples])) 
 
 (defn process-backlog
@@ -158,14 +154,13 @@
         not-resolved (set (filter #(not (resolved?-helper % backlog-triples blank-node-dependency)) roots))]
     [resolved not-resolved blank-node-dependency]))
 
-
 ;TODO: implement guard against ever growing window of backlog-triples
 (defn parse-window
   [it windowsize backlog-triples]
   (if (empty? backlog-triples)
     (let [new-triples (get-triples it windowsize);triples in the working window 
           thin-triples (filter thin-triple? new-triples)
-          thick-triples (filter #(not (thin-triple? %)) new-triples)]
+          thick-triples (remove thin-triple? new-triples)]
       [thin-triples thick-triples '()])
 
     (let [;(A) setup data structures for previous window of triples
@@ -198,48 +193,31 @@
 
           ;TODO resolved-no-updates-triples contain thin triples - these could be filtered out
           ;(map #(filter (fn [x] (not (thin-triple? x))) %) resolved-no-updates-triples)
-      [thin-triples (distinct thick-triples) resolved-no-updates-triples])))
+      [thin-triples (distinct thick-triples) resolved-no-updates-triples]))) 
 
 
-;THIS DOESN'T work because triples are not in the correct order
-(defn extract-thick-triple
-  [it blanknodes acc]
-    (if (.hasNext it)
-      (let [triple (.next it)
-            subject (.getSubject triple)
-            object  (.getObject triple)]
-        (cond 
-          (and (not (.isBlank subject))
-               (.isBlank object)
-               (empty? blanknodes)) (extract-thick-triple it (conj blanknodes object) (conj acc triple))
-          (and (.isBlank subject)
-               (.isBlank object)
-               (contains? blanknodes subject)) (extract-thick-triple it (conj blanknodes object) (conj acc triple))
-          :else [acc triple]))))
-
-(defn extend-stanza
-  [it triple acc]
-    (let [stanza-subject (.getSubject triple)]
-      (if (.hasNext it)
-        (let [n (.next it)]
-          (if (.equals (.getSubject n) stanza-subject) 
-            (extend-stanza it n (conj acc n))
-            [it acc triple])))))
-
-(defn print-process 
-  [x]
-  (println (count (first x)))
-  (println (count (second x)))
-  (println (count (nth x 2))) 
-  (println "Thick kept")
-  (run! println (second x))
-  (println "Thick returned")
-  (run! println (nth x 2))
-  (println ""))
 
 (defn -main
   "Currently only used for manual testing."
   [& args] 
+
+
+
+  ;testing
+  (let [is (new FileInputStream (first args))
+        it (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")
+        windowsize 50]
+    (loop [backlog '()]
+      (when (.hasNext it) 
+        (let [[thin kept thick] (parse-window it windowsize backlog)]
+          (recur kept)))))
+
+  ;takes about a second for obi
+  ;(time (let [is (new FileInputStream (first args))
+  ;      it (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")]
+  ;  (loop [backlog '()]
+  ;    (when (.hasNext it) 
+  ;      (recur (.next it))))))
 
 )
 
