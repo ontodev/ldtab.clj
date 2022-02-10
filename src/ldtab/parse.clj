@@ -196,6 +196,50 @@
       [thin-triples (distinct thick-triples) resolved-no-updates-triples]))) 
 
 
+;TODO: IN PROGRESS:
+;mutable data structure for backlog handling 
+;TODO: IN PROGRESS:
+
+(defn merge-subject-maps
+  [m1 m2]
+  (loop [ks (keys m2)
+         vs (vals m2)
+         res m1]
+    (if (empty? ks)
+      res
+      (recur (rest ks)
+             (rest vs)
+             (assoc-in res [(first ks) :triples] (first vs)))))) 
+
+(defn is-resolved?
+  [subject backlog-map]
+  (let [dependencies (get-in backlog-map [subject :dependencies])]
+    (cond 
+      (not dependencies) false
+      (empty? dependencies) true
+      :else (every? #(is-resolved? % backlog-map) dependencies))))
+
+(defn build-backlog-map
+  [triples]
+  (let [subject-map (group-by #(.getSubject %) triples)
+        subject-2-object (map-on-hash-map-vals (fn [x] (map (fn [y] (.getObject y)) x)) subject-map)
+        subject-2-blanknode (map-on-hash-map-vals (fn [x] (filter (fn [y] (.isBlank y)) x)) subject-2-object)
+        subjects (map #(.getSubject %) triples)
+        dependency-map (map #(get-blanknode-dependency % subject-2-blanknode) subjects)
+        base (zipmap subjects dependency-map)
+        dependencies (map-on-hash-map-vals #(assoc {} :dependencies %) base)
+        updated (map-on-hash-map-vals #(assoc % :updated true) dependencies)
+        withTriples (merge-subject-maps updated subject-map)
+        base-resolved (map-on-hash-map-vals #(if (empty? (:dependencies %))
+                                               (assoc % :resolved true)
+                                               %) 
+                                            withTriples)
+        resolved (apply merge (map (fn [[k v]] (if (is-resolved? k base-resolved)
+                                     (hash-map k (assoc v :resolved true))
+                                     (hash-map k (assoc v :resolved false)))) base-resolved))] 
+    resolved))
+
+
 
 (defn -main
   "Currently only used for manual testing."
