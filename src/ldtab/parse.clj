@@ -239,6 +239,42 @@
                                      (hash-map k (assoc v :resolved false)))) base-resolved))] 
     resolved))
 
+(defn merge-updates
+  [m1 m2]
+  (loop [ks (keys m2)
+         vs (vals m2)
+         res m1]
+    (if (empty? ks)
+      res
+      (recur (rest ks)
+             (rest vs) 
+             (-> res 
+                 (assoc-in [(first ks) :updated] true)
+                 (update-in [(first ks) :triples] #(concat % (:triples (first vs)))) 
+                 (update-in [(first ks) :dependencies] #(distinct (concat % (:dependencies (first vs))))))))))
+
+
+(defn reset-updated
+  [m]
+  (loop [ks (keys m)
+         vs (vals m)
+         res m]
+    (if (empty? ks)
+      res
+      (recur (rest ks)
+             (rest vs)
+             (assoc-in res [(first ks) :updated] false)))))
+
+;TODO: work in progress
+(defn update-backlog-map
+  [old-backlog update-map]
+  (let [reset-updates (reset-updated old-backlog)
+        merged (merge-updates reset-updates update-map)
+        ;TODO: reset :resolved 
+        ;TODO: update :resolved
+        ]
+    merged))
+
 
 
 (defn -main
