@@ -253,9 +253,8 @@
                  (update-in [(first ks) :triples] #(concat % (:triples (first vs)))) 
                  (update-in [(first ks) :dependencies] #(distinct (concat % (:dependencies (first vs))))))))))
 
-
-(defn reset-updated
-  [m]
+(defn reset-key
+  [m k]
   (loop [ks (keys m)
          vs (vals m)
          res m]
@@ -263,17 +262,75 @@
       res
       (recur (rest ks)
              (rest vs)
-             (assoc-in res [(first ks) :updated] false)))))
+             (assoc-in res [(first ks) k] false)))))
 
-;TODO: work in progress
+(defn update-key
+  ;m - map
+  ;k - key
+  ;f - function (used for updating)
+  [m k f]
+  (loop [ks (keys m)
+         vs (vals m)
+         res m]
+    (if (empty? ks)
+      res
+      (recur (rest ks)
+             (rest vs)
+             (assoc-in res [(first ks) k] (f (first ks) m))))))
+
+(defn set-update
+  [m updated]
+  (loop [ks (keys m)
+         vs (vals m)
+         res m]
+    (if (empty? ks)
+      res
+      (recur (rest ks)
+             (rest vs)
+             ;either the key itself is updated 
+             ;or one of its dependencies
+             (update-in res [(first ks) :updated] #(or %
+                                                     (contains? updated (first ks))
+                                                       (not-empty (s/intersection
+                                                                    updated
+                                                                    (set (get-in res [(first ks) :dependencies]))))))))))
+
+
 (defn update-backlog-map
   [old-backlog update-map]
-  (let [reset-updates (reset-updated old-backlog)
-        merged (merge-updates reset-updates update-map)
-        ;TODO: reset :resolved 
-        ;TODO: update :resolved
-        ]
-    merged))
+  (let [reset-updates (reset-key old-backlog :updated)
+        merged (merge-updates reset-updates update-map) 
+        reset-resolved (reset-key merged :resolved)
+        updated (set (map first (filter (fn [[k v]] (:updated v)) update-map)))
+        updated-1 (set-update reset-resolved updated)
+        resolved (update-key updated-1 :resolved is-resolved?)]
+    resolved)) 
+
+(defn parse-window-2
+  [it windowsize backlog]
+  (if (empty? backlog)
+    (let [new-triples (get-triples it windowsize)
+          thin-triples (filter thin-triple? new-triples)
+          thick-triples (remove thin-triple? new-triples)
+          kept (build-backlog-map thick-triples)]
+      [thin-triples kept '()])
+
+    (let [ 
+          ;(B) fetch new window of triples
+          [new-triples thin-triples new-thick-triples] (fetch-new-window it windowsize) 
+
+          ;(A) setup data structures for previous window of triples
+          new-map (build-backlog-map new-thick-triples)
+          new-backlog (update-backlog-map backlog new-map)
+
+          ;get resolved-no-updates (these will be returned)
+          resolved-no-updates (filter (fn [[k v]] (and (:resolved v)
+                                       (not (:updated v)))) new-backlog)
+
+          ;remove resolved-no-updates from backlog map
+          not-kept (map first resolved-no-updates) 
+          kept (apply (partial dissoc new-backlog) not-kept)]
+      [thin-triples kept resolved-no-updates])))
 
 
 
