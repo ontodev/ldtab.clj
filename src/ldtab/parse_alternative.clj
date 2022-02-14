@@ -51,8 +51,11 @@
         indirect (flatten (map #(get-blanknode-dependency % subject-2-blanknode) direct))]
     (into () (remove nil? (s/union direct indirect))))) 
 
-(defn merge-subject-maps
+;TODO write proper doc string 
+(defn add-triples
   [m1 m2]
+  """Given a backlog map m1, and a map from subjects to triples m2,
+    add triples associated with a subject from m2 to m1. """
   (loop [ks (keys m2)
          vs (vals m2)
          res m1]
@@ -64,6 +67,9 @@
 
 (defn is-resolved?
   [subject backlog-map]
+  """Given a subject and a backlog map,
+    return true if all blank node dependencies are resolved,
+    and false otherwise."""
   (let [dependencies (get-in backlog-map [subject :dependencies])]
     (cond 
       (not dependencies) false
@@ -107,7 +113,7 @@
         dependencies (map-on-hash-map-vals #(assoc {} :dependencies %) base)
         ;assumption: when a backlog is created, the subject is assumed to be 'updated' 
         updated (map-on-hash-map-vals #(assoc % :updated true) dependencies)
-        triples-added (merge-subject-maps updated subject-map)
+        triples-added (add-triples updated subject-map)
         ;subjects without blank node dependencies are considered 'resolved'
         base-resolved (map-on-hash-map-vals #(if (empty? (:dependencies %))
                                                (assoc % :resolved true)
@@ -120,6 +126,7 @@
 
 (defn merge-updates
   [m1 m2]
+  """Given two backlog maps, m1 and m2, merge m2 into m1.""" 
   (loop [ks (keys m2)
          vs (vals m2)
          res m1]
@@ -133,8 +140,10 @@
                  (update-in [(first ks) :dependencies] #(distinct (concat % (:dependencies (first vs)))))))))) 
 
 
+;TODO add proper doc string
 (defn reset-key
   [m k]
+  """Given a backlog map m and a (nested) key :updated or :resolved, set the key to false."""
   (loop [ks (keys m)
          vs (vals m)
          res m]
@@ -144,11 +153,11 @@
              (rest vs)
              (assoc-in res [(first ks) k] false)))))
 
+;TODO add proper doc string
 (defn update-key
-  ;m - map
-  ;k - key
-  ;f - function (used for updating)
   [m k f]
+  """Given a backlog map m, a key, and a function f,
+    apply f to the value of the (nested) key k.""" 
   (loop [ks (keys m)
          vs (vals m)
          res m]
@@ -158,7 +167,10 @@
              (rest vs)
              (assoc-in res [(first ks) k] (f (first ks) m))))))
 
+;TODO add proper doc string
 (defn set-update
+  """Given a backlog map m, and a list of updated subjects,
+    update m's :updated keys for all (dependent) subjects"""
   [m updated]
   (loop [ks (keys m)
          vs (vals m)
@@ -175,8 +187,10 @@
                                                                     updated
                                                                     (set (get-in res [(first ks) :dependencies]))))))))))
 
+;TODO add proper doc string
 (defn update-backlog-map
   [old-backlog update-map]
+  """Given a backlog map, and an update backlog map, return the corresponding updated backlog map."""
   (let [reset-updates (reset-key old-backlog :updated)
         merged (merge-updates reset-updates update-map) 
         reset-resolved (reset-key merged :resolved)
