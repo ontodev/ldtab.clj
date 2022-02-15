@@ -169,9 +169,9 @@
 
 ;TODO add proper doc string
 (defn set-update
+  [m updated]
   """Given a backlog map m, and a list of updated subjects,
     update m's :updated keys for all (dependent) subjects"""
-  [m updated]
   (loop [ks (keys m)
          vs (vals m)
          res m]
@@ -240,6 +240,3 @@
                 (println ttt)
                 (recur kept)))))) 
 )
-
-
-
