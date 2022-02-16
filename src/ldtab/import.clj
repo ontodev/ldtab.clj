@@ -3,8 +3,9 @@
             [clojure.java.io :as io]
             [clojure.java.jdbc :as jdbc]
             [ldtab.parse :as parse]
+            [ldtab.parse-alternative :as parseAlternative] ;TODO use this parsing algorithm
             [clojure.set :as s]
-            [wiring.thin2thick.core :as thin2thick])
+            [wiring.thin2thick.core :as thin2thick]);TODO this dependency will be removed
   (:import [java.io InputStream FileInputStream] 
            [org.apache.jena.riot RDFDataMgr Lang])
   (:gen-class)) 
@@ -56,6 +57,8 @@
 (defn annotations-for-non-stated-triples
   [annotations thin-triples thick-triples]
   (filter #(not (or
+  """Given a backlog map m, and a list of updated subjects,
+    update m's :updated keys for all (dependent) subjects"""
                   (contains? thin-triples (dissoc % "annotation"))
                   (contains? thick-triples %)))
           annotations)) 
@@ -78,7 +81,7 @@
         it (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")
         windowsize 50]
     ;TODO refactor this into parsing.clj? or translation.clj since this translates RDF into thick-triples
-    (loop [backlog '()
+    (loop [backlog '();TODO: this would be a map
            thin-backlog [nil nil nil] 
            thick-backlog [nil nil nil]
            unstated-annotation-backlog (hash-set)

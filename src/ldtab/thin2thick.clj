@@ -116,7 +116,7 @@
   [node]
   (cond
     (.isURI node) (curify (.getURI node)) 
-    (.isLiteral node) (.getLiteralValue node)
+    (.isLiteral node) (.getLiteralLexicalForm node)
     :else "ERROR"))
 
 (defn node-2-thick-map
@@ -180,7 +180,7 @@
         subject (node-2-thick-map s subject-2-thin-triples)
         predicate (node-2-thick-map p subject-2-thin-triples)
         object (node-2-thick-map o subject-2-thin-triples)]
-    {:subject subject, :predicate predicate, :object object, :datatype (get-datatype o)}))) 
+    {:subject subject, :predicate predicate, :object object, :datatype (get-datatype o)})))
 
 
 (defn thin-2-thick
@@ -211,6 +211,7 @@
               ;root-triples (map root-triples encoded)
 
               ;raw (map #(first (thin-2-thick-raw %)) thick)
+              tt (thin-2-thick thin)
               raw (map #(first (thin-2-thick %)) thick)
               ex (:subject (first raw))
               ]
@@ -220,7 +221,8 @@
           ;(when ex
           ;  (when (some is-meta-statement raw) ;TODO: can't just look at the firs tone (need a map
           ;    (println raw)))
-          (println raw)
+          ;(println raw)
+          (println tt)
 
           (recur kept)))))
 
