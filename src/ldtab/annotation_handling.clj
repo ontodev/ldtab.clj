@@ -46,6 +46,7 @@
   (let [subject (:object (first (get predicate-map "owl:annotatedSource")))
         predicate (:object (first (get predicate-map "owl:annotatedProperty")))
         object (:object (first (get predicate-map "owl:annotatedTarget"))) 
+        datatype (:datatype (first (get predicate-map "owl:annotatedTarget")))
 
         annotation-properties (filter #(not (is-owl-property? %)) (keys predicate-map))
         annotation-objects (map #(get predicate-map %) annotation-properties) 
@@ -56,10 +57,12 @@
       {:object object,
        :predicate predicate,
        :subject subject,
+       :datatype datatype,
        :annotation (update-annotation-map annotation-map previous-annotation)} 
       {:object object,
        :predicate predicate,
        :subject subject,
+       :datatype datatype,
        :annotation annotation-map}))) 
 
 (declare encode-raw-annotation-map)
