@@ -2,10 +2,10 @@
   (:require [clojure.data.csv :as csv]
             [clojure.java.io :as io]
             [clojure.java.jdbc :as jdbc]
-            [ldtab.parse :as parse]
-            [ldtab.parse-alternative :as parseAlternative] ;TODO use this parsing algorithm
+            [ldtab.parse :as parse];TODO remove this dependency
+            [ldtab.parse-alternative :as parseAlternative] 
             [clojure.set :as s]
-            [wiring.thin2thick.core :as thin2thick]);TODO this dependency will be removed
+            [ldtab.thin2thick :as thin2thick])
   (:import [java.io InputStream FileInputStream] 
            [org.apache.jena.riot RDFDataMgr Lang])
   (:gen-class)) 
@@ -74,31 +74,59 @@
   (let [anno-set (set annotations)]
     (into [] (map #(remove (fn [x] (contains? anno-set x)) %) backlog))))
 
+(defn insert-tail
+  [db transaction graph backlog thin-backlog thick-backlog unstated-annotation-backlog]
+  (let [[thin1 thin2 thin3] thin-backlog
+        [thick1 thick2 thick3] thick-backlog
+        backlog-triples (flatten (map #(:triples %)  (vals backlog))) 
+        backlog-json (thin2thick/thin-2-thick backlog-triples)] 
+  (do
+    (when backlog-json 
+      (multi-insert backlog-json db transaction graph))
+    (when thin1
+      (multi-insert thin1 db transaction graph))
+    (when thick1
+      (multi-insert thick1 db transaction graph))
+    (when thin2
+      (multi-insert thin2 db transaction graph))
+    (when thick2
+      (multi-insert thick2 db transaction graph))
+    (when thin3
+      (multi-insert thin3 db transaction graph))
+    (when thick3
+      (multi-insert thick3 db transaction graph))
+    (when unstated-annotation-backlog
+      (multi-insert unstated-annotation-backlog db transaction graph)))))
+
 (defn import-rdf
   [rdf-path db-path graph]
   (let [db (load-db db-path)
         is (new FileInputStream rdf-path)
         it (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")
-        windowsize 50]
-    ;TODO refactor this into parsing.clj? or translation.clj since this translates RDF into thick-triples
-    (loop [backlog '();TODO: this would be a map
+        windowsize 500]
+    ;TODO refactor this
+    ;into parsing.clj? or annotation-handling.clj?
+    (loop [backlog {}
            thin-backlog [nil nil nil] 
            thick-backlog [nil nil nil]
            unstated-annotation-backlog (hash-set)
            transaction 1]
-      (when (.hasNext it) 
-        (let [[thin kept thick] (parse/parse-window it windowsize backlog)
+      (if (not (.hasNext it))
+        (insert-tail db transaction graph backlog thin-backlog thick-backlog unstated-annotation-backlog)
+        (let [[thin kept thick] (parseAlternative/parse-window it windowsize backlog)
 
-            thin-rdf-string (map parse/jena-triple-2-string thin)
-            thick-rdf-string (map #(map parse/jena-triple-2-string %) thick)
+            thin-json (thin2thick/thin-2-thick thin)
+            thick-json (thin2thick/thin-2-thick thick)
 
-            thin-json (thin2thick/thin-2-thick thin-rdf-string)
-            thick-json (map #(first (thin2thick/thin-2-thick %)) thick-rdf-string)
 
-            annotation-json (filter #(contains? % "annotation") thick-json) 
+            ;TODO refactor: the follownig is just annotatiion handling
+            ;TODO set operations are slow
+            annotation-json (filter #(contains? % "annotation") thick-json)
             thin-backlog-flat (set (flatten thin-backlog))
             thick-backlog-flat (set (flatten thick-backlog))
 
+            ;takes annotations (as JSON) as well as thin and thick triples (as JSON)
+            ;and checks whether an annotation 'talks' about a thin/thick triple
             stated-annotation-json (annotations-for-stated-triples annotation-json
                                                                    thin-backlog-flat 
                                                                    thick-backlog-flat)
@@ -122,10 +150,10 @@
 
             annotations (concat annotation-json stated-annotation-backlog)
             [thin1 thin2 thin3] (remove-from-thin-backlog thin-backlog annotations)
-            [thick1 thick2 thick3] (remove-from-thin-backlog thick-backlog annotations)]
+            [thick1 thick2 thick3] (remove-from-thin-backlog thick-backlog annotations)] 
 
-          ;insert into database
-          ;TODO update transaction 
+          ;insert into database 
+          ;TODO: this is slow (takes 11 sec for obi)
           (when thin3
             (multi-insert thin3 db transaction graph))
           (when thick3
