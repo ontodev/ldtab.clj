@@ -100,7 +100,7 @@
       (multi-insert unstated-annotation-backlog db transaction graph)))))
 
 (defn import-rdf
-  [rdf-path db-path graph]
+  [db-path rdf-path graph]
   (let [db (load-db db-path)
         is (new FileInputStream rdf-path)
         it (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")
