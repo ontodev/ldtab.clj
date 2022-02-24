@@ -39,7 +39,7 @@
 
 (defn validate-init
   [arguments]
-  (cond
+  (cond 
     (not (= 2 (count arguments)))
     {:exit-message "Invalid input: init requires a single argument."} 
 
@@ -48,6 +48,21 @@
 
     :else
     {:action arguments}))
+
+(defn validate-prefix
+  [arguments]
+  (cond
+    (not (= 3 (count arguments)))
+    {:exit-message "Invalid input: prefix requires two arguments."} 
+
+    (not (.exists (io/as-file (second arguments))))
+    {:exit-message "Invalid input: database (first argument) does not exist."} 
+
+    (not (.exists (io/as-file (nth arguments 2))))
+    {:exit-message "Invalid input: prefix table (second argument) does not exist."} 
+
+    :else 
+    {:action arguments} ))
 
 (defn validate-args
   "Validate command line arguments. Either return a map indicating the program
@@ -64,23 +79,11 @@
       (= "init" (first arguments))
       (assoc (validate-init arguments) :options options)
 
+      (= "prefix" (first arguments))
+      (assoc (validate-prefix arguments) :options options)
+
 
       ;TODO: implement support for import
-      (and (= "prefix" (first arguments))
-           (not (= 3 (count arguments))))
-      {:exit-message "Invalid input: prefix requires two arguments."} 
-
-      (and (= "prefix" (first arguments))
-           (not (.exists (io/as-file (second arguments)))));check whether database exists
-      {:exit-message "Invalid input: database (first argument) does not exist."} 
-
-      (and (= "prefix" (first arguments))
-           (not (.exists (io/as-file (nth arguments 2)))));check whether database exists
-      {:exit-message "Invalid input: prefix table (second argument) does not exist."} 
-
-      (and (= "prefix" (first arguments))
-           (= 3 (count arguments)))
-      {:action arguments :options options} 
 
       ;TODO refactor "import" validation into its own function
       (and (= "import" (first arguments))
