@@ -3,6 +3,7 @@
             [clojure.string :as string]
             [clojure.java.io :as io]
             [ldtab.init :as init-db]
+            [ldtab.prefix :as prefix]
             [ldtab.import :as import-db])
   (:gen-class))
 
@@ -65,8 +66,20 @@
 
       ;TODO: implement support for import
       (and (= "prefix" (first arguments))
+           (not (= 3 (count arguments))))
+      {:exit-message "Invalid input: prefix requires two arguments."} 
+
+      (and (= "prefix" (first arguments))
+           (not (.exists (io/as-file (second arguments)))));check whether database exists
+      {:exit-message "Invalid input: database (first argument) does not exist."} 
+
+      (and (= "prefix" (first arguments))
+           (not (.exists (io/as-file (nth arguments 2)))));check whether database exists
+      {:exit-message "Invalid input: prefix table (second argument) does not exist."} 
+
+      (and (= "prefix" (first arguments))
            (= 3 (count arguments)))
-      {:action  arguments :options options}
+      {:action arguments :options options} 
 
       ;TODO refactor "import" validation into its own function
       (and (= "import" (first arguments))
@@ -80,7 +93,7 @@
       (and (= "import" (first arguments))
            (not (.exists (io/as-file (nth arguments 2)))));check whether database exists
       {:exit-message "Invalid input: ontology (second argument) does not exist."} 
-           
+
       (and (= "import" (first arguments))
            (= 3 (count arguments)))
       {:action arguments :options options}
@@ -124,12 +137,21 @@
         ontology (nth arguments 2)]
     (import-db/import-rdf db ontology "graph")));TODO how do we handle the graph input?
 
+;TODO handle options for subcommand
+;TODO validate tsv file
+(defn ldtab-prefix
+  [command]
+  (let [arguments (:arguments (parse-opts command import-options :in-order true))
+        db (second arguments)
+        tsv (nth arguments 2)]
+    (prefix/insert-prefixes db tsv))) 
+
 (defn parse-subcommand
   [command]
   (let [subcommand (first command)]
     (cond
       (= subcommand "init") (ldtab-init command)
-      (= subcommand "prefix") (parse-opts command prefix-options :in-order true)
+      (= subcommand "prefix") (ldtab-prefix command)
       (= subcommand "import") (ldtab-import command)
       (= subcommand "export") (parse-opts command export-options :in-order true)
       :else "Unknown subcommand")));this should not occur
