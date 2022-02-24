@@ -14,11 +14,10 @@
    ["-h" "--help"]])
 
 (defn usage [options-summary]
-  (->> ["LDTab is a tool for working with RDF datasets and OWL using SQL databases.
-         The immediate use case for LDTab is an ontology term browser
-         with support for history and multiple named graphs.
-         The current version is focused on embedded database use case, building on SQLite. 
-        This is my program. There are many like it, but this one is mine."
+  (->> ["LDTab is a tool for working with RDF datasets and OWL using SQL databases."
+        "The immediate use case for LDTab is an ontology term browser"
+        "with support for history and multiple named graphs."
+        "The current version is focused on embedded database use case, building on SQLite."
         ""
         "Usage: ldtab [options] action"
         ""
@@ -141,11 +140,3 @@
     (if exit-message
       (exit (if ok? 0 1) exit-message)
       (parse-subcommand action))))
-      ;(case action
-      ;  "start"  (server/start! options)
-      ;  "stop"   (server/stop! options)
-      ;  "status" (server/status! options)))))
-
-
-  ;(println (parse-opts args cli-options :in-order true)))
-  ;(println (parse-subcommand (:arguments (parse-opts args cli-options :in-order true)))))
