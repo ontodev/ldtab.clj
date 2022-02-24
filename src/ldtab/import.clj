@@ -5,6 +5,7 @@
             [ldtab.parse :as parse];TODO remove this dependency
             [ldtab.parse-alternative :as parseAlternative] 
             [clojure.set :as s]
+            [cheshire.core :as cs]
             [ldtab.thin2thick :as thin2thick])
   (:import [java.io InputStream FileInputStream] 
            [org.apache.jena.riot RDFDataMgr Lang])
@@ -31,11 +32,11 @@
   {:assertion transaction
    :retraction 0 ;hard-coded value
    :graph graph
-   :subject subject
-   :predicate predicate 
-   :object object
-   :datatype datatype
-   :annotation annotation})
+   :subject (cs/generate-string subject);TODO use cheshire here to encode things as JSON strings
+   :predicate (cs/generate-string predicate)
+   :object (cs/generate-string object)
+   :datatype (cs/generate-string datatype)
+   :annotation (cs/generate-string annotation)})
 
 (defn multi-insert
   [json-triples db transaction graph]
@@ -103,7 +104,7 @@
   (let [db (load-db db-path)
         is (new FileInputStream rdf-path)
         it (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")
-        windowsize 500]
+        windowsize 60000] ;Note: this window size is pretty large
     ;TODO refactor this
     ;into parsing.clj? or annotation-handling.clj?
     (loop [backlog {}
