@@ -2,7 +2,8 @@
   (:require [clojure.tools.cli :refer [parse-opts]]
             [clojure.string :as string]
             [clojure.java.io :as io]
-            [ldtab.init :as init-db])
+            [ldtab.init :as init-db]
+            [ldtab.import :as import-db])
   (:gen-class))
 
 (def cli-options
@@ -63,13 +64,29 @@
            (not (.exists (io/as-file (second arguments)))))
       {:action arguments :options options}
 
+      ;TODO: implement support for import
       (and (= "prefix" (first arguments))
            (= 3 (count arguments)))
       {:action  arguments :options options}
 
+      ;TODO refactor "import" validation into its own function
+      (and (= "import" (first arguments))
+           (not (= 3 (count arguments))));check number of arguments
+      {:exit-message "Invalid input: import requires two arguments."} 
+
+      (and (= "import" (first arguments))
+           (not (.exists (io/as-file (second arguments)))));check whether database exists
+      {:exit-message "Invalid input: database (first argument) does not exist."} 
+
+      (and (= "import" (first arguments))
+           (not (.exists (io/as-file (nth arguments 2)))));check whether database exists
+      {:exit-message "Invalid input: ontology (second argument) does not exist."} 
+           
       (and (= "import" (first arguments))
            (= 3 (count arguments)))
-      {:action  arguments :options options}
+      {:action arguments :options options}
+
+      ;TODO implement support for export
 
       :else ; failed custom validation => exit with usage summary
       {:exit-message (usage summary)})))
@@ -95,18 +112,26 @@
   [["-h" "--help"]])
 
 ;TODO handle options for subcommand
-(defn init
+(defn ldtab-init
   [command]
   (let [db (second (:arguments (parse-opts command init-options :in-order true)))]
    (init-db/create-database db)))
+
+;TODO handle options for subcommend
+(defn ldtab-import
+  [command]
+  (let [arguments (:arguments (parse-opts command import-options :in-order true))
+        db (second arguments)
+        ontology (nth arguments 2)]
+    (import-db/import-rdf db ontology "graph")));TODO how do we handle the graph input?
 
 (defn parse-subcommand
   [command]
   (let [subcommand (first command)]
     (cond
-      (= subcommand "init") (init command)
+      (= subcommand "init") (ldtab-init command)
       (= subcommand "prefix") (parse-opts command prefix-options :in-order true)
-      (= subcommand "import") (parse-opts command import-options :in-order true)
+      (= subcommand "import") (ldtab-import command)
       (= subcommand "export") (parse-opts command export-options :in-order true)
       :else "Unknown subcommand")));this should not occur
 
