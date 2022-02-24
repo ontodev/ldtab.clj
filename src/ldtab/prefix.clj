@@ -21,7 +21,7 @@
   (jdbc/insert! db :prefix {:prefix prefix :base base}))
 
 (defn insert-prefixes
- [prefixes-path db-path]
+ [db-path prefixes-path]
  (let [db (load-db db-path)
        ;rest: parse prefixes and drop first row "prefix base"
        prefixes (rest (parse-tsv prefixes-path))]
