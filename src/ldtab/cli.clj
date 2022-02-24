@@ -37,6 +37,18 @@
   (str "The following errors occurred while parsing your command:\n\n"
        (string/join \newline errors)))
 
+(defn validate-init
+  [arguments]
+  (cond
+    (not (= 2 (count arguments)))
+    {:exit-message "Invalid input: init requires a single argument."} 
+
+    (.exists (io/as-file (second arguments)))
+    {:exit-message (str "Invalid input: File " (second arguments) " already exists.")} 
+
+    :else
+    {:action arguments}))
+
 (defn validate-args
   "Validate command line arguments. Either return a map indicating the program
   should exit (with an error message, and optional ok status), or a map
@@ -49,20 +61,9 @@
       errors ; errors => exit with description of errors
       {:exit-message (error-msg errors)}
 
-      ;TODO: refactor "init" validation into its own function
-      (and (= "init" (first arguments));check arity
-           (not (= 2 (count arguments))))
-      {:exit-message "Invalid input: init requires a single argument."} 
+      (= "init" (first arguments))
+      (assoc (validate-init arguments) :options options)
 
-      (and (= "init" (first arguments));
-           (= 2 (count arguments))
-           (.exists (io/as-file (second arguments))));check whether file exists
-      {:exit-message (str "Invalid input: File " (second arguments) " already exists.")} 
-
-      (and (= "init" (first arguments))
-           (= 2 (count arguments))
-           (not (.exists (io/as-file (second arguments)))))
-      {:action arguments :options options}
 
       ;TODO: implement support for import
       (and (= "prefix" (first arguments))
@@ -105,8 +106,7 @@
 
 (defn exit [status msg]
   (println msg)
-  (System/exit status))
-
+  (System/exit status)) 
 
 ;TODO: implement options for subcommands
 (def init-options
@@ -154,8 +154,7 @@
       (= subcommand "prefix") (ldtab-prefix command)
       (= subcommand "import") (ldtab-import command)
       (= subcommand "export") (parse-opts command export-options :in-order true)
-      :else "Unknown subcommand")));this should not occur
-
+      :else "Unknown subcommand")));this should not occur 
 
 (defn -main [& args]
   (let [{:keys [action options exit-message ok?]} (validate-args args)]
