@@ -14,6 +14,22 @@
     :update-fn inc]
    ["-h" "--help"]])
 
+;TODO: implement options for subcommands
+(def init-options
+  [["-h" "--help"]
+   ["-i" "--info"]
+   ["-o" "--output"]])
+
+(def prefix-options
+  [["-h" "--help"]])
+
+(def import-options
+  [["-h" "--help"]
+   ["-s" "--streamed"]])
+
+(def export-options
+  [["-h" "--help"]])
+
 (defn usage [options-summary]
   (->> ["LDTab is a tool for working with RDF datasets and OWL using SQL databases."
         "The immediate use case for LDTab is an ontology term browser"
@@ -65,7 +81,8 @@
     {:action arguments}))
 
 (defn validate-import 
-  [arguments]
+  [command]
+  (let [{:keys [options arguments errors summary]} (parse-opts command import-options)]
   (cond
     (not (= 3 (count arguments)))
     {:exit-message "Invalid input: import requires two arguments."} 
@@ -77,7 +94,7 @@
     {:exit-message "Invalid input: ontology (second argument) does not exist."} 
 
     :else
-    {:action arguments}))
+    {:action command})))
 
 (defn validate-args
   "Validate command line arguments. Either return a map indicating the program
@@ -110,20 +127,6 @@
   (println msg)
   (System/exit status)) 
 
-;TODO: implement options for subcommands
-(def init-options
-  [["-h" "--help"]
-   ["-i" "--info"]
-   ["-o" "--output"]])
-
-(def prefix-options
-  [["-h" "--help"]])
-
-(def import-options
-  [["-h" "--help"]])
-
-(def export-options
-  [["-h" "--help"]])
 
 ;TODO handle options for subcommand
 (defn ldtab-init
@@ -135,10 +138,13 @@
 ;TODO add options to use 'streamed' or 'non-streamed' version
 (defn ldtab-import
   [command]
-  (let [arguments (:arguments (parse-opts command import-options :in-order true))
+  (let [{:keys [options arguments errors summary]} (parse-opts command import-options)
         db (second arguments)
-        ontology (nth arguments 2)]
-    (import-db/import-rdf-streamed db ontology "graph")));TODO how do we handle the graph input?
+        ontology (nth arguments 2)
+        streamed (:streamed options)]
+    (if streamed
+      (import-db/import-rdf-streamed db ontology "graph")
+      (import-db/import-rdf-model db ontology "graph"))));TODO how do we handle the graph input?
 
 ;TODO handle options for subcommand
 ;TODO validate tsv file
