@@ -62,7 +62,22 @@
     {:exit-message "Invalid input: prefix table (second argument) does not exist."} 
 
     :else 
-    {:action arguments} ))
+    {:action arguments}))
+
+(defn validate-import 
+  [arguments]
+  (cond
+    (not (= 3 (count arguments)))
+    {:exit-message "Invalid input: import requires two arguments."} 
+
+    (not (.exists (io/as-file (second arguments))))
+    {:exit-message "Invalid input: database (first argument) does not exist."} 
+
+    (not (.exists (io/as-file (nth arguments 2))))
+    {:exit-message "Invalid input: ontology (second argument) does not exist."} 
+
+    :else
+    {:action arguments}))
 
 (defn validate-args
   "Validate command line arguments. Either return a map indicating the program
@@ -73,7 +88,8 @@
     (cond
       (:help options) 
       {:exit-message (usage summary) :ok? true}
-      errors ; errors => exit with description of errors
+
+      errors 
       {:exit-message (error-msg errors)}
 
       (= "init" (first arguments))
@@ -82,29 +98,12 @@
       (= "prefix" (first arguments))
       (assoc (validate-prefix arguments) :options options)
 
-
-      ;TODO: implement support for import
-
-      ;TODO refactor "import" validation into its own function
-      (and (= "import" (first arguments))
-           (not (= 3 (count arguments))));check number of arguments
-      {:exit-message "Invalid input: import requires two arguments."} 
-
-      (and (= "import" (first arguments))
-           (not (.exists (io/as-file (second arguments)))));check whether database exists
-      {:exit-message "Invalid input: database (first argument) does not exist."} 
-
-      (and (= "import" (first arguments))
-           (not (.exists (io/as-file (nth arguments 2)))));check whether database exists
-      {:exit-message "Invalid input: ontology (second argument) does not exist."} 
-
-      (and (= "import" (first arguments))
-           (= 3 (count arguments)))
-      {:action arguments :options options}
+      (= "import" (first arguments))
+      (assoc (validate-import arguments) :options options)
 
       ;TODO implement support for export
 
-      :else ; failed custom validation => exit with usage summary
+      :else 
       {:exit-message (usage summary)})))
 
 (defn exit [status msg]
