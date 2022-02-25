@@ -47,10 +47,11 @@
 (defn as-thin-triples-streamed
   [input]
   (let [in (RDFDataMgr/open input)
-        model (time (.read (ModelFactory/createDefaultModel) in ""))
-        root-subjects (time (get-root-subjects model))
-        subject-stanzas (time (map #(get-stanza % model) root-subjects))]
-   subject-stanzas))
+        model (.read (ModelFactory/createDefaultModel) in "")
+        root-subjects (get-root-subjects model)
+        subject-stanzas (map #(get-stanza % model) root-subjects)
+        subject-stanza-triples (map #(map (fn [x] (.asTriple x)) %) subject-stanzas)]
+   subject-stanza-triples))
 
 ;NB: don't use this
 ;this implementation is just a reference for testing/validation purposes
