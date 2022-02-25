@@ -3,6 +3,7 @@
             [clojure.java.io :as io]
             [clojure.java.jdbc :as jdbc]
             [ldtab.parse :as parse];TODO remove this dependency
+            [ldtab.parse-model :as parseModel]
             [ldtab.parse-alternative :as parseAlternative] 
             [clojure.set :as s]
             [cheshire.core :as cs]
@@ -99,7 +100,7 @@
     (when unstated-annotation-backlog
       (multi-insert unstated-annotation-backlog db transaction graph)))))
 
-(defn import-rdf
+(defn import-rdf-streamed
   [db-path rdf-path graph]
   (let [db (load-db db-path)
         is (new FileInputStream rdf-path)
@@ -168,7 +169,17 @@
                  updated-unstated-annotation-backlog
                  transaction))))))
 
-
+;TODO: we still cannot represent annotations/reifications that are not also stated
+(defn import-rdf-model
+  [db-path rdf-path graph]
+  (let [db (load-db db-path)
+        thin-triples (parseModel/as-thin-triples-streamed rdf-path)
+        thick-triples (map thin2thick/thin-2-thick thin-triples)
+        thick-triples (apply concat thick-triples)
+        annotation-triples (filter #(contains? % "annotation") thick-triples)
+        superfuous (set (map #(dissoc % "annotation") annotation-triples))
+        thick-triples (remove superfuous thick-triples)] 
+    (multi-insert thick-triples db 1 graph))) 
 
 (defn -main
   "Currently only used for manual testing."
@@ -191,6 +202,7 @@
   ;        (recur kept)))))
           
 
-  (time (import-rdf (first args) (second args) "graph"))
+  ;(time (import-rdf-streamed (first args) (second args) "graph"))
+   (import-rdf-model (first args) (second args) "graph")
   
   ) 

@@ -132,12 +132,13 @@
    (init-db/create-database db)))
 
 ;TODO handle options for subcommend
+;TODO add options to use 'streamed' or 'non-streamed' version
 (defn ldtab-import
   [command]
   (let [arguments (:arguments (parse-opts command import-options :in-order true))
         db (second arguments)
         ontology (nth arguments 2)]
-    (import-db/import-rdf db ontology "graph")));TODO how do we handle the graph input?
+    (import-db/import-rdf-streamed db ontology "graph")));TODO how do we handle the graph input?
 
 ;TODO handle options for subcommand
 ;TODO validate tsv file
