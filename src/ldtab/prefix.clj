@@ -21,16 +21,9 @@
   (jdbc/insert! db :prefix {:prefix prefix :base base}))
 
 (defn insert-prefixes
+  "Add prefixes from a TSV file to an SQLite database."
  [db-path prefixes-path]
  (let [db (load-db db-path)
-       ;rest: parse prefixes and drop first row "prefix base"
-       prefixes (rest (parse-tsv prefixes-path))]
+       prefixes (rest (parse-tsv prefixes-path))];rest: drop header "prefix base"
    (doseq [p prefixes] 
      (insert-prefix db (first p) (second p)))))
-
-;manual testing
-(defn -main [& args]
-  (def db-spec (load-db (second args)))
-  (println (jdbc/query db-spec ["SELECT * FROM prefix"]))
-  (insert-prefixes (first args) (second args))
-  (println (jdbc/query db-spec ["SELECT * FROM prefix"])))
