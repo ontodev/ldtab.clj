@@ -54,43 +54,50 @@
        (string/join \newline errors)))
 
 (defn validate-init
-  [arguments]
+  [command]
+  (let [{:keys [options arguments errors summary]} (parse-opts command init-options)
+        database (io/as-file (second arguments))]
   (cond 
     (not (= 2 (count arguments)))
     {:exit-message "Invalid input: init requires a single argument."} 
 
-    (.exists (io/as-file (second arguments)))
+    (.exists database)
     {:exit-message (str "Invalid input: File " (second arguments) " already exists.")} 
 
     :else
-    {:action arguments}))
+    {:action command})))
 
 (defn validate-prefix
-  [arguments]
+  [command]
+  (let [{:keys [options arguments errors summary]} (parse-opts command prefix-options)
+        database (io/as-file (second arguments))
+        prefix-table (io/as-file (nth arguments 2))]
   (cond
     (not (= 3 (count arguments)))
     {:exit-message "Invalid input: prefix requires two arguments."} 
 
-    (not (.exists (io/as-file (second arguments))))
+    (not (.exists database))
     {:exit-message "Invalid input: database (first argument) does not exist."} 
 
-    (not (.exists (io/as-file (nth arguments 2))))
+    (not (.exists prefix-table))
     {:exit-message "Invalid input: prefix table (second argument) does not exist."} 
 
     :else 
-    {:action arguments}))
+    {:action command})))
 
 (defn validate-import 
   [command]
-  (let [{:keys [options arguments errors summary]} (parse-opts command import-options)]
+  (let [{:keys [options arguments errors summary]} (parse-opts command import-options)
+        database (io/as-file (second arguments))
+        ontology (io/as-file (nth arguments 2))]
   (cond
     (not (= 3 (count arguments)))
     {:exit-message "Invalid input: import requires two arguments."} 
 
-    (not (.exists (io/as-file (second arguments))))
+    (not (.exists database))
     {:exit-message "Invalid input: database (first argument) does not exist."} 
 
-    (not (.exists (io/as-file (nth arguments 2))))
+    (not (.exists ontology))
     {:exit-message "Invalid input: ontology (second argument) does not exist."} 
 
     :else
