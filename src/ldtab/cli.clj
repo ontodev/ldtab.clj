@@ -58,6 +58,12 @@
   (let [{:keys [options arguments errors summary]} (parse-opts command init-options)
         database (io/as-file (second arguments))]
   (cond 
+    (:help options) 
+    {:exit-message (usage summary) :ok? true}
+
+    errors 
+    {:exit-message (error-msg errors)}
+
     (not (= 2 (count arguments)))
     {:exit-message "Invalid input: init requires a single argument."} 
 
@@ -73,6 +79,12 @@
         database (io/as-file (second arguments))
         prefix-table (io/as-file (nth arguments 2))]
   (cond
+    (:help options) 
+    {:exit-message (usage summary) :ok? true}
+
+    errors 
+    {:exit-message (error-msg errors)}
+
     (not (= 3 (count arguments)))
     {:exit-message "Invalid input: prefix requires two arguments."} 
 
@@ -91,6 +103,12 @@
         database (io/as-file (second arguments))
         ontology (io/as-file (nth arguments 2))]
   (cond
+    (:help options) 
+    {:exit-message (usage summary) :ok? true}
+
+    errors 
+    {:exit-message (error-msg errors)}
+
     (not (= 3 (count arguments)))
     {:exit-message "Invalid input: import requires two arguments."} 
 
