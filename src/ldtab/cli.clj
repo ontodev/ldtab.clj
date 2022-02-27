@@ -56,8 +56,7 @@
 
 (defn validate-init
   [command]
-  (let [{:keys [options arguments errors summary]} (parse-opts command init-options)
-        database (io/as-file (second arguments))]
+  (let [{:keys [options arguments errors summary]} (parse-opts command init-options)]
   (cond 
     (:help options) 
     {:exit-message (usage summary) :ok? true}
@@ -68,7 +67,7 @@
     (not (= 2 (count arguments)))
     {:exit-message "Invalid input: init requires a single argument."} 
 
-    (.exists database)
+    (.exists (io/as-file (second arguments)))
     {:exit-message (str "Invalid input: File " (second arguments) " already exists.")} 
 
     :else
@@ -106,9 +105,7 @@
 
 (defn validate-import 
   [command]
-  (let [{:keys [options arguments errors summary]} (parse-opts command import-options)
-        database (io/as-file (second arguments))
-        ontology (io/as-file (nth arguments 2))]
+  (let [{:keys [options arguments errors summary]} (parse-opts command import-options)]
   (cond
     (:help options) 
     {:exit-message (usage summary) :ok? true}
@@ -119,10 +116,10 @@
     (not (= 3 (count arguments)))
     {:exit-message "Invalid input: import requires two arguments."} 
 
-    (not (.exists database))
+    (not (.exists (io/as-file (second arguments))))
     {:exit-message "Invalid input: database (first argument) does not exist."} 
 
-    (not (.exists ontology))
+    (not (.exists (io/as-file (nth arguments 2))))
     {:exit-message "Invalid input: ontology (second argument) does not exist."} 
 
     :else
