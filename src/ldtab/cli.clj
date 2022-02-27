@@ -160,7 +160,7 @@
 ;TODO handle options for subcommand
 (defn ldtab-init
   [command]
-  (let [db (second (:arguments (parse-opts command init-options :in-order true)))]
+  (let [db (second (:arguments (parse-opts command init-options)))]
    (init-db/create-database db)))
 
 ;TODO handle options for subcommend
@@ -180,7 +180,7 @@
 ;TODO issue #3 says to print prefixes if second argument is missing
 (defn ldtab-prefix
   [command]
-  (let [arguments (:arguments (parse-opts command import-options :in-order true))
+  (let [arguments (:arguments (parse-opts command import-options))
         db (second arguments)
         tsv (nth arguments 2)]
     (prefix/insert-prefixes db tsv))) 
