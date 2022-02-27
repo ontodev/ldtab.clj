@@ -21,7 +21,8 @@
    ["-o" "--output"]])
 
 (def prefix-options
-  [["-h" "--help"]])
+  [["-h" "--help"]
+   ["-l" "--list" "List prefixes"]])
 
 (def import-options
   [["-h" "--help"]
@@ -75,27 +76,33 @@
 
 (defn validate-prefix
   [command]
-  (let [{:keys [options arguments errors summary]} (parse-opts command prefix-options)
-        database (io/as-file (second arguments))
-        prefix-table (io/as-file (nth arguments 2))]
-  (cond
-    (:help options) 
-    {:exit-message (usage summary) :ok? true}
+  (let [{:keys [options arguments errors summary]} (parse-opts command prefix-options)]
+    (cond
+      (:help options) 
+      {:exit-message (usage summary) :ok? true}
 
-    errors 
-    {:exit-message (error-msg errors)}
+      (and (:list options) 
+           (not (= 2 (count arguments))))
+      {:exit-message "Invalid input: prefix --list requires a single argument"}
 
-    (not (= 3 (count arguments)))
-    {:exit-message "Invalid input: prefix requires two arguments."} 
+      (and (:list options) 
+           (= 2 (count arguments)))
+      {:exit-message (prefix/get-prefixes-as-string (second arguments)) :ok? true}
 
-    (not (.exists database))
-    {:exit-message "Invalid input: database (first argument) does not exist."} 
+      errors 
+      {:exit-message (error-msg errors)}
 
-    (not (.exists prefix-table))
-    {:exit-message "Invalid input: prefix table (second argument) does not exist."} 
+      (not (= 3 (count arguments)))
+      {:exit-message "Invalid input: prefix requires two arguments."} 
 
-    :else 
-    {:action command})))
+      (not (.exists (io/as-file (second arguments))))
+      {:exit-message "Invalid input: database (first argument) does not exist."} 
+
+      (not (.exists (io/as-file (nth arguments 2))))
+      {:exit-message "Invalid input: prefix table (second argument) does not exist."} 
+
+      :else 
+      {:action command})))
 
 (defn validate-import 
   [command]
@@ -173,6 +180,7 @@
 
 ;TODO handle options for subcommand
 ;TODO validate tsv file
+;TODO issue #3 says to print prefixes if second argument is missing
 (defn ldtab-prefix
   [command]
   (let [arguments (:arguments (parse-opts command import-options :in-order true))

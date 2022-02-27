@@ -20,6 +20,19 @@
   [db prefix base]
   (jdbc/insert! db :prefix {:prefix prefix :base base}))
 
+
+(defn get-prefixes
+  [db-path]
+  (let [db (load-db db-path)]
+    (jdbc/query db ["SELECT * FROM prefix"])))
+
+(defn get-prefixes-as-string
+  [db-path]
+  (let [prefixes (get-prefixes db-path)
+        prefix-strings (map #(str (:prefix %) "," (:base %) "\n") prefixes)
+        prefix-string (apply str prefix-strings)] 
+    (str "Prefixes in " db-path ":\n\n" prefix-string))) 
+
 (defn insert-prefixes
   "Add prefixes from a TSV file to an SQLite database."
  [db-path prefixes-path]
