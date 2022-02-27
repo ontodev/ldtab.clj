@@ -170,7 +170,7 @@
 (defn import-rdf-model
   [db-path rdf-path graph]
   (let [db (load-db db-path)
-        thin-triples (parseModel/as-thin-triples-streamed rdf-path)
+        thin-triples (parseModel/group-thin-triple-dependencies rdf-path)
         thick-triples (map thin2thick/thin-2-thick thin-triples)
         thick-triples (apply concat thick-triples)
         annotation-triples (filter #(contains? % "annotation") thick-triples)
