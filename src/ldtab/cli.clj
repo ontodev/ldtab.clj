@@ -7,6 +7,7 @@
             [ldtab.import :as import-db])
   (:gen-class))
 
+;TODO what kind of options should LDTab provide?
 (def cli-options
   [["-v" nil "Verbosity level"
     :id :verbosity
@@ -15,10 +16,9 @@
    ["-h" "--help"]])
 
 ;TODO: implement options for subcommands
+;TODO write custom help messages for subcommands
 (def init-options
-  [["-h" "--help"]
-   ["-i" "--info"]
-   ["-o" "--output"]])
+  [["-h" "--help"]])
 
 (def prefix-options
   [["-h" "--help"]
@@ -55,6 +55,7 @@
        (string/join \newline errors)))
 
 (defn validate-init
+  "Validate command line arguments for the `init` subcommand."
   [command]
   (let [{:keys [options arguments errors summary]} (parse-opts command init-options)]
   (cond 
@@ -74,6 +75,7 @@
     {:action command})))
 
 (defn validate-prefix
+  "Validate command line arguments for the `prefix` subcommand."
   [command]
   (let [{:keys [options arguments errors summary]} (parse-opts command prefix-options)]
     (cond
@@ -104,6 +106,7 @@
       {:action command})))
 
 (defn validate-import 
+  "Validate command line arguments for the `import` subcommand."
   [command]
   (let [{:keys [options arguments errors summary]} (parse-opts command import-options)]
   (cond
@@ -192,8 +195,8 @@
       (= subcommand "init") (ldtab-init command)
       (= subcommand "prefix") (ldtab-prefix command)
       (= subcommand "import") (ldtab-import command)
-      (= subcommand "export") (parse-opts command export-options :in-order true)
-      :else "Unknown subcommand")));this should not occur 
+      (= subcommand "export") (parse-opts command export-options :in-order true);TODO
+      :else "Unknown subcommand")))
 
 (defn -main [& args]
   (let [{:keys [action options exit-message ok?]} (validate-args args)]
