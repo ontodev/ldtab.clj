@@ -1,19 +1,14 @@
 (ns ldtab.thin2thick
-  (:require [clojure.repl :as repl]
-            [clojure.java.io :as io]
-            [clojure.set :as s]
+  (:require [clojure.set :as s]
             [clojure.string :as string]
-            [ldtab.parse :as parse]
             [ldtab.annotation-handling :as ann]
             [cheshire.core :as cs])
-  (:import [org.apache.jena.graph NodeFactory Triple] 
-           [java.io InputStream FileInputStream]
-           [org.apache.jena.riot RDFDataMgr Lang])
+  (:import [org.apache.jena.graph NodeFactory Triple])
   (:gen-class))
 
 (declare node-2-thick-map)
 
-;TODO: add support for user input prefixes
+;TODO: add support for user input prefixes (using prefix table)
 (defn curify
   [s]
   (let [owl (string/replace s #"http://www.w3.org/2002/07/owl#" "owl:") 
@@ -52,8 +47,7 @@
       :else (NodeFactory/createURI "ambiguous")))) 
 
 (defn encode-blank-nodes
-  [triples]
-  """Given a set of triples,
+  "Given a set of triples,
     identify root blank nodes and add triples of the form
 
     [wiring:blanknode:id type _:blankNode]
@@ -77,8 +71,8 @@
     Explanation:
     We collapse blank nodes into JSON maps.
     However, for root blank nodes, this yields a JSON map that is not part of a triple.
-    So, we artificially create these triples by introducing 'dummy blank nodes' (that are not treated as blank nodes by the implementation).
-    """
+    So, we artificially create these triples by introducing 'dummy blank nodes' (that are not treated as blank nodes by the implementation)."
+  [triples]
   (let [subject-to-triples (group-by #(.getSubject %) triples)
         subjects (set (map #(.getSubject %) triples))
         objects (set (map #(.getObject %) triples))
@@ -111,7 +105,7 @@
 
 (defn encode-node
   "Given a Jena Node, return String for 
-  1. URIs (:TODO use CURIES?) 
+  1. URIs 
   2. Literal Value for Literals"
   [node]
   (cond
@@ -129,7 +123,7 @@
           predicates (group-by #(.getPredicate %) triples)
           predicates (map-on-hash-map-keys encode-node predicates)] 
       (map-on-hash-map-vals ;encode objects recursively
-        #(into [] (map (fn [x] (encode-object x subject-2-thin-triples)) %))
+        #(vec (map (fn [x] (encode-object x subject-2-thin-triples)) %))
         predicates)) 
     (encode-node node)))
 
@@ -152,7 +146,7 @@
   [m]
     (cond
       (map? m) (into (sorted-map) (map-on-hash-map-vals sort-json m)) ;sort by key
-      (coll? m) (into [] (map cs/parse-string ;sort by string comparison
+      (coll? m) (vec (map cs/parse-string ;sort by string comparison
                               (sort (map #(cs/generate-string (sort-json %))
                                          m))))
       :else m))
@@ -164,16 +158,16 @@
   (group-by #(.getSubject %) thin-triples)) 
 
 (defn thin-2-thick-raw
+   "Given a set of thin triples, return the corresponding set of (raw) thick triples."
   ([triples]
-   """Given a set of thin triples, return the corresponding set of (raw) thick triples."""
    (let [blank-node-encoding (encode-blank-nodes triples) 
          subject-2-thin-triples (map-subject-2-thin-triples blank-node-encoding)
          root-triples (root-triples blank-node-encoding) 
          thick-triples (map #(thin-2-thick-raw % subject-2-thin-triples) root-triples)]
      thick-triples))
   ([triple subject-2-thin-triples]
-  """Given a thin triple t and a map from subjects to thin triples,
-    return t as a (raw) thick triple."""
+  "Given a thin triple t and a map from subjects to thin triples,
+    return t as a (raw) thick triple."
   (let [s (.getSubject triple)
         p (.getPredicate triple)
         o (.getObject triple) 
@@ -194,39 +188,3 @@
         sorted (map sort-json annotations)
         normalised (map #(cs/parse-string (cs/generate-string %)) sorted)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
     normalised))
-
-
-(defn -main
-  "Currently only used for manual testing."
-  [& args]
-  ;testing
-  (let [rdf-path (first args) 
-        is (new FileInputStream rdf-path)
-        it (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")
-        windowsize 50]
-    (loop [backlog '()]
-      (when (.hasNext it) 
-        (let [[thin kept thick] (parse/parse-window it windowsize backlog)
-              ;encoded (map encode-blank-nodes thick) 
-              ;root-triples (map root-triples encoded)
-
-              ;raw (map #(first (thin-2-thick-raw %)) thick)
-              tt (thin-2-thick thin)
-              raw (map #(first (thin-2-thick %)) thick)
-              ex (:subject (first raw))
-              ]
-          ;(when ex
-          ;  (when (.isURI ex)
-          ;    (println (.getURI ex))))
-          ;(when ex
-          ;  (when (some is-meta-statement raw) ;TODO: can't just look at the firs tone (need a map
-          ;    (println raw)))
-          ;(println raw)
-          (println tt)
-
-          (recur kept)))))
-
-
-)
-
-

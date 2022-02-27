@@ -1,14 +1,11 @@
 (ns ldtab.import
-  (:require [clojure.data.csv :as csv]
-            [clojure.java.io :as io]
-            [clojure.java.jdbc :as jdbc]
-            [ldtab.parse :as parse];TODO remove this dependency
+  (:require [clojure.java.jdbc :as jdbc]
             [ldtab.parse-model :as parseModel]
             [ldtab.parse-alternative :as parseAlternative] 
             [clojure.set :as s]
             [cheshire.core :as cs]
             [ldtab.thin2thick :as thin2thick])
-  (:import [java.io InputStream FileInputStream] 
+  (:import [java.io FileInputStream] 
            [org.apache.jena.riot RDFDataMgr Lang])
   (:gen-class)) 
 

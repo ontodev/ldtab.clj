@@ -1,6 +1,7 @@
 (ns ldtab.prefix
   (:require [clojure.data.csv :as csv]
             [clojure.java.io :as io]
+            [clojure.string :as s]
             [clojure.java.jdbc :as jdbc])
   (:gen-class)) 
 
@@ -20,17 +21,17 @@
   [db prefix base]
   (jdbc/insert! db :prefix {:prefix prefix :base base}))
 
-
-(defn get-prefixes
+(defn query-prefixes
   [db-path]
   (let [db (load-db db-path)]
     (jdbc/query db ["SELECT * FROM prefix"])))
 
 (defn get-prefixes-as-string
+  "Query for prefixes in an SQLite database and return them as a string."
   [db-path]
-  (let [prefixes (get-prefixes db-path)
+  (let [prefixes (query-prefixes db-path)
         prefix-strings (map #(str (:prefix %) "," (:base %) "\n") prefixes)
-        prefix-string (apply str prefix-strings)] 
+        prefix-string (s/join prefix-strings)] 
     (str "Prefixes in " db-path ":\n\n" prefix-string))) 
 
 (defn insert-prefixes
