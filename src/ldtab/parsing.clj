@@ -1,17 +1,12 @@
-(ns ldtab.parse-alternative
+(ns ldtab.parsing
   (:require [clojure.set :as s]
-            [wiring.util.thickTriples :as util]
-            [ldtab.thin2thick :as t2t]
-            [clojure.string :as string])
-  (:import [org.apache.jena.rdf.model Model ModelFactory Resource]
-           [org.apache.jena.riot.system StreamRDFBase]
-           [java.io InputStream FileInputStream] 
-           [org.apache.jena.graph NodeFactory Triple] 
+            [ldtab.thin2thick :as t2t])
+  (:import [java.io FileInputStream] 
            [org.apache.jena.riot RDFDataMgr Lang])) 
 
 (defn thin-triple?
+  "Given a JENA triple, return true if the triple has no blank node dependencies."
   [triple]
-  """Given a JENA triple, return true if the triple has no blank node dependencies."""
   (let [s (.getSubject triple)
         o (.getObject triple)]
     (and (not (.isBlank s))
@@ -23,9 +18,9 @@
 
 
 (defn get-triples
+  "Given a stream of triples and a natural number n,
+    return the next n triples from the stream."
   [it n]
-  """Given a stream of triples and a natural number n,
-    return the next n triples from the stream."""
    (loop [x 0
           triples '()]
      (if (and (.hasNext it)
@@ -34,17 +29,17 @@
        triples))) 
 
 (defn fetch-new-window
+  "Given a stream of RDF triples, extract the next."
   [it windowsize]
-  """Given a stream of RDF triples, extract the next """
   (let [new-triples (get-triples it windowsize) ;extract windowsize many new triples
         thin-triples (filter thin-triple? new-triples)
         thick-triples (remove thin-triple? new-triples)]
     [thin-triples thick-triples])) 
 
 (defn get-blanknode-dependency
+  "Given a subject and a (direct) map from subjects to blank node dependencies,
+  return the transitive closure of blank node dependencies for the subject."
   [subject subject-2-blanknode]
-  """Given a subject and a (direct) map from subjects to blank node dependencies,
-  return the transitive closure of blank node dependencies for the subject."""
   (let [direct (get subject-2-blanknode subject)
         ;TODO: this does not need to be recomputed recursively
         ;this map could be build up in a bottom-up fasion (however, this shouldn't speed things up too drastically)
@@ -53,9 +48,9 @@
 
 ;TODO write proper doc string 
 (defn add-triples
+  "Given a backlog map m1, and a map from subjects to triples m2,
+    add triples associated with a subject from m2 to m1."
   [m1 m2]
-  """Given a backlog map m1, and a map from subjects to triples m2,
-    add triples associated with a subject from m2 to m1. """
   (loop [ks (keys m2)
          vs (vals m2)
          res m1]
@@ -66,10 +61,10 @@
              (assoc-in res [(first ks) :triples] (first vs)))))) 
 
 (defn is-resolved?
-  [subject backlog-map]
-  """Given a subject and a backlog map,
+  "Given a subject and a backlog map,
     return true if all blank node dependencies are resolved,
-    and false otherwise."""
+    and false otherwise."
+  [subject backlog-map]
   (let [dependencies (get-in backlog-map [subject :dependencies])]
     (cond 
       (not dependencies) false
@@ -84,8 +79,7 @@
       (some #(updated? % backlog-map) dependencies)))) ;NB: this can return nil
 
 (defn build-backlog-map
-  [triples]
-  """Given a list of JENA triples,
+  "Given a list of JENA triples,
     construct a map from subjects to a map containing information about 
     1. blank node dependencies
     2. whether all blank node dependencies can be resolved to non-blank nodes, and
@@ -103,7 +97,8 @@
      subject-n {:dependencies (dn1, dn2, ...)
                 :updated true
                 :resolved true/fase
-                :triples ([subjectn pn1 on1], [subjectn pn2 on2], ...)}"""
+                :triples ([subjectn pn1 on1], [subjectn pn2 on2], ...)}"
+  [triples]
   (let [subject-map (group-by #(.getSubject %) triples) 
         subject-2-object (map-on-hash-map-vals (fn [x] (map (fn [y] (.getObject y)) x)) subject-map)
         subject-2-blanknode (map-on-hash-map-vals (fn [x] (filter (fn [y] (.isBlank y)) x)) subject-2-object)
@@ -125,8 +120,8 @@
     resolved))
 
 (defn merge-updates
+  "Given two backlog maps, m1 and m2, merge m2 into m1."
   [m1 m2]
-  """Given two backlog maps, m1 and m2, merge m2 into m1.""" 
   (loop [ks (keys m2)
          vs (vals m2)
          res m1]
@@ -142,8 +137,8 @@
 
 ;TODO add proper doc string
 (defn reset-key
+  "Given a backlog map m and a (nested) key :updated or :resolved, set the key to false."
   [m k]
-  """Given a backlog map m and a (nested) key :updated or :resolved, set the key to false."""
   (loop [ks (keys m)
          vs (vals m)
          res m]
@@ -155,9 +150,9 @@
 
 ;TODO add proper doc string
 (defn update-key
+  "Given a backlog map m, a key, and a function f,
+    apply f to the value of the (nested) key k."
   [m k f]
-  """Given a backlog map m, a key, and a function f,
-    apply f to the value of the (nested) key k.""" 
   (loop [ks (keys m)
          vs (vals m)
          res m]
@@ -169,9 +164,9 @@
 
 ;TODO add proper doc string
 (defn set-update
+  "Given a backlog map m, and a list of updated subjects,
+    update m's :updated keys for all (dependent) subjects"
   [m updated]
-  """Given a backlog map m, and a list of updated subjects,
-    update m's :updated keys for all (dependent) subjects"""
   (loop [ks (keys m)
          vs (vals m)
          res m]
@@ -189,8 +184,8 @@
 
 ;TODO add proper doc string
 (defn update-backlog-map
+  "Given a backlog map, and an update backlog map, return the corresponding updated backlog map."
   [old-backlog update-map]
-  """Given a backlog map, and an update backlog map, return the corresponding updated backlog map."""
   (let [reset-updates (reset-key old-backlog :updated)
         merged (merge-updates reset-updates update-map) 
         reset-resolved (reset-key merged :resolved)

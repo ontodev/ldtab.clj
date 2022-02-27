@@ -1,4 +1,4 @@
-(ns ldtab.parse-model
+(ns ldtab.rdf-model
   (:require [clojure.set :as s])
   (:import [org.apache.jena.rdf.model ModelFactory]
            [org.apache.jena.riot RDFDataMgr]))

@@ -1,7 +1,7 @@
 (ns ldtab.import
   (:require [clojure.java.jdbc :as jdbc]
-            [ldtab.parse-model :as parseModel]
-            [ldtab.parse-alternative :as parseAlternative] 
+            [ldtab.rdf-model :as rdf-model]
+            [ldtab.parsing :as parsing] 
             [clojure.set :as s]
             [cheshire.core :as cs]
             [ldtab.thin2thick :as thin2thick])
@@ -112,7 +112,7 @@
            transaction 1]
       (if (not (.hasNext it))
         (insert-tail db transaction graph backlog thin-backlog thick-backlog unstated-annotation-backlog)
-        (let [[thin kept thick] (parseAlternative/parse-window it windowsize backlog)
+        (let [[thin kept thick] (parsing/parse-window it windowsize backlog)
 
             thin-json (thin2thick/thin-2-thick thin)
             thick-json (thin2thick/thin-2-thick thick)
@@ -170,7 +170,7 @@
 (defn import-rdf-model
   [db-path rdf-path graph]
   (let [db (load-db db-path)
-        thin-triples (parseModel/group-thin-triple-dependencies rdf-path)
+        thin-triples (rdf-model/group-thin-triple-dependencies rdf-path)
         thick-triples (map thin2thick/thin-2-thick thin-triples)
         thick-triples (apply concat thick-triples)
         annotation-triples (filter #(contains? % "annotation") thick-triples)
