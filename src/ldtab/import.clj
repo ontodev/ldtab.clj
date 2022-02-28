@@ -2,7 +2,7 @@
   (:require [clojure.java.jdbc :as jdbc]
             [ldtab.rdf-model :as rdf-model]
             [ldtab.parsing :as parsing] 
-            [clojure.set :as s]
+            [clojure.set :as set]
             [cheshire.core :as cs]
             [ldtab.thin2thick :as thin2thick])
   (:import [java.io FileInputStream] 
@@ -15,38 +15,37 @@
   :subprotocol "sqlite"
   :subname path})
 
-(defn insert-triple
-  [db transaction graph subject predicate object datatype annotation] 
-  (jdbc/insert! db :statement {:assertion transaction
-                               :retraction 0 ;hard-coded value
-                               :graph graph
-                               :subject subject
-                               :predicate predicate 
-                               :object object
-                               :datatype datatype
-                               :annotation annotation})) 
-(defn prepere-insert
+(defn encode-json
+  "Given information for a row in the statment table,
+  encode thick-triple information as JSON strings."
   [transaction graph subject predicate object datatype annotation] 
   {:assertion transaction
-   :retraction 0 ;hard-coded value
+   :retraction 0 ;hard-coded value: data is being inserted
    :graph graph
-   :subject (cs/generate-string subject);TODO use cheshire here to encode things as JSON strings
+   ;encode data as JSON strings
+   :subject (cs/generate-string subject)
    :predicate (cs/generate-string predicate)
    :object (cs/generate-string object)
    :datatype (cs/generate-string datatype)
-   :annotation (cs/generate-string annotation)})
+   :annotation (cs/generate-string annotation)}) 
 
-(defn multi-insert
+(defn insert-triples
+  "Inserts a list of thick triples into a database."
   [json-triples db transaction graph]
-  (jdbc/insert-multi! db :statement (map #(prepere-insert transaction
-                                                          graph
-                                                          (get % "subject")
-                                                          (get % "predicate")
-                                                          (get % "object")
-                                                          (get % "datatype")
-                                                          (get % "annotation")) json-triples)))
+  (jdbc/insert-multi! db :statement (map #(encode-json transaction
+                                                       graph
+                                                       (get % "subject")
+                                                       (get % "predicate")
+                                                       (get % "object")
+                                                       (get % "datatype")
+                                                       (get % "annotation")) json-triples)))
 
 (defn annotations-for-stated-triples
+  "Given lists of thick triples for
+    (1) annotations
+    (2) thin-triples
+    (3) thick triples
+  return annotations in (1) for tripes in (2) or (3)" 
   [annotations thin-triples thick-triples]
   (filter #(or
              (contains? thin-triples (dissoc % "annotation"))
@@ -54,10 +53,13 @@
           annotations))
 
 (defn annotations-for-non-stated-triples
+  "Given lists of thick triples for
+    (1) annotations
+    (2) thin-triples
+    (3) thick triples
+  return annotations in (1) for tripes not in (2) or (3)" 
   [annotations thin-triples thick-triples]
   (filter #(not (or
-  """Given a backlog map m, and a list of updated subjects,
-    update m's :updated keys for all (dependent) subjects"""
                   (contains? thin-triples (dissoc % "annotation"))
                   (contains? thick-triples %)))
           annotations)) 
@@ -66,105 +68,105 @@
   [backlog annotations]
   (let [anno (map #(dissoc % "annotation") annotations)
         anno-set (set anno)]
-    (into [] (map #(remove (fn [x] (contains? anno-set x)) %) backlog))))
+    (vec (map #(remove (fn [x] (contains? anno-set x)) %) backlog))))
 
+;TODO test this
 (defn remove-from-thick-backlog 
   [backlog annotations]
-  (let [anno-set (set annotations)]
-    (into [] (map #(remove (fn [x] (contains? anno-set x)) %) backlog))))
+  (let [anno-set (set annotations)] ;why don't you have to remove the annotation here?
+    (vec (map #(remove (fn [x] (contains? anno-set x)) %) backlog))))
 
 (defn insert-tail
+  "Insert thin and thick triples currently in the backlog windows."
   [db transaction graph backlog thin-backlog thick-backlog unstated-annotation-backlog]
   (let [[thin1 thin2 thin3] thin-backlog
         [thick1 thick2 thick3] thick-backlog
-        backlog-triples (flatten (map #(:triples %)  (vals backlog))) 
+        backlog-triples (flatten (map :triples (vals backlog))) 
         backlog-json (thin2thick/thin-2-thick backlog-triples)] 
-  (do
-    (when backlog-json 
-      (multi-insert backlog-json db transaction graph))
-    (when thin1
-      (multi-insert thin1 db transaction graph))
-    (when thick1
-      (multi-insert thick1 db transaction graph))
-    (when thin2
-      (multi-insert thin2 db transaction graph))
-    (when thick2
-      (multi-insert thick2 db transaction graph))
-    (when thin3
-      (multi-insert thin3 db transaction graph))
-    (when thick3
-      (multi-insert thick3 db transaction graph))
+    (when backlog-json (insert-triples backlog-json db transaction graph))
+    (when thin1 (insert-triples thin1 db transaction graph))
+    (when thick1 (insert-triples thick1 db transaction graph))
+    (when thin2 (insert-triples thin2 db transaction graph))
+    (when thick2 (insert-triples thick2 db transaction graph))
+    (when thin3 (insert-triples thin3 db transaction graph))
+    (when thick3 (insert-triples thick3 db transaction graph))
     (when unstated-annotation-backlog
-      (multi-insert unstated-annotation-backlog db transaction graph)))))
+      (insert-triples unstated-annotation-backlog db transaction graph))))
 
-(defn import-rdf-streamed
+(defn associate-annotations-with-statements
+  [thin thick thin-backlog thick-backlog unstated-annotation-backlog]
+  ;input: thin thick thin-backlog thick-backlog unstated-annotation-backlog
+  ;output: [thin1 thin2 thin3] [thick1 thick2 thick3] updated-annotation-backlog
+  (let [thin-json (thin2thick/thin-2-thick thin)
+        thick-json (thin2thick/thin-2-thick thick) 
+
+        ;TODO refactor: the follownig is just annotatiion handling
+        ;TODO set operations are slow
+        annotation-json (filter #(contains? % "annotation") thick-json)
+        thin-backlog-flat (set (flatten thin-backlog))
+        thick-backlog-flat (set (flatten thick-backlog))
+
+        unstated-annotation-json (annotations-for-non-stated-triples annotation-json
+                                                                     thin-backlog-flat
+                                                                     thick-backlog-flat)
+
+
+        ;check for previously 'unstated' anotations whether they are in the current backlog windows
+        stated-annotation-backlog (annotations-for-stated-triples unstated-annotation-backlog
+                                                                  thin-backlog-flat
+                                                                  thick-backlog-flat)
+
+        ;keep 'unstated' annotations in case their statements appear later in the streaming
+        updated-unstated-annotation-backlog (set/union unstated-annotation-backlog
+                                                       (set unstated-annotation-json))
+        ;remove found annotations
+        updated-unstated-annotation-backlog (set/difference updated-unstated-annotation-backlog
+                                                            (set stated-annotation-backlog))
+
+        annotations (concat annotation-json stated-annotation-backlog)
+        [thin1 thin2 thin3] (remove-from-thin-backlog thin-backlog annotations)
+        [thick1 thick2 thick3] (remove-from-thick-backlog thick-backlog annotations)] 
+    {:thin thin3
+     :thick thick3
+     :annotations annotations
+     :thin-backlog [thin-json thin1 thin2]
+     :thick-backlog [thick-json thick1 thick2]
+     :unstated-annotation-backlog updated-unstated-annotation-backlog}))
+
+
+(defn import-rdf-stream
   [db-path rdf-path graph]
   (let [db (load-db db-path)
         is (new FileInputStream rdf-path)
         it (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")
         windowsize 60000] ;Note: this window size is pretty large
-    ;TODO refactor this
-    ;into parsing.clj? or annotation-handling.clj?
     (loop [backlog {}
            thin-backlog [nil nil nil] 
            thick-backlog [nil nil nil]
            unstated-annotation-backlog (hash-set)
            transaction 1]
-      (if (not (.hasNext it))
+      (if-not (.hasNext it)
         (insert-tail db transaction graph backlog thin-backlog thick-backlog unstated-annotation-backlog)
         (let [[thin kept thick] (parsing/parse-window it windowsize backlog)
-
-            thin-json (thin2thick/thin-2-thick thin)
-            thick-json (thin2thick/thin-2-thick thick)
-
-
-            ;TODO refactor: the follownig is just annotatiion handling
-            ;TODO set operations are slow
-            annotation-json (filter #(contains? % "annotation") thick-json)
-            thin-backlog-flat (set (flatten thin-backlog))
-            thick-backlog-flat (set (flatten thick-backlog))
-
-            ;takes annotations (as JSON) as well as thin and thick triples (as JSON)
-            ;and checks whether an annotation 'talks' about a thin/thick triple
-            stated-annotation-json (annotations-for-stated-triples annotation-json
-                                                                   thin-backlog-flat 
-                                                                   thick-backlog-flat)
-
-            unstated-annotation-json (annotations-for-non-stated-triples annotation-json
-                                                                         thin-backlog-flat
-                                                                         thick-backlog-flat)
-
-
-            ;check for previously 'unstated' anotations whether they are in the current backlog windows
-            stated-annotation-backlog (annotations-for-stated-triples unstated-annotation-backlog
-                                                                      thin-backlog-flat
-                                                                      thick-backlog-flat)
-
-            ;keep 'unstated' annotations in case their statements appear later in the streaming
-            updated-unstated-annotation-backlog (s/union unstated-annotation-backlog
-                                                         (set unstated-annotation-json))
-            ;remove found annotations
-            updated-unstated-annotation-backlog (s/difference updated-unstated-annotation-backlog
-                                                              (set stated-annotation-backlog))
-
-            annotations (concat annotation-json stated-annotation-backlog)
-            [thin1 thin2 thin3] (remove-from-thin-backlog thin-backlog annotations)
-            [thick1 thick2 thick3] (remove-from-thin-backlog thick-backlog annotations)] 
+              annotation-handling (associate-annotations-with-statements thin
+                                                                         thick
+                                                                         thin-backlog
+                                                                         thick-backlog
+                                                                         unstated-annotation-backlog)
+              thin (:thin annotation-handling)
+              thick (:thick annotation-handling)
+              annotations (:annotations annotation-handling)] 
 
           ;insert into database 
-          ;TODO: this is slow (takes 11 sec for obi)
-          (when thin3
-            (multi-insert thin3 db transaction graph))
-          (when thick3
-            (multi-insert thick3 db transaction graph))
-          (when annotations
-            (multi-insert annotations db transaction graph))
+          (when thin (insert-triples thin db transaction graph))
+          (when thick (insert-triples thick db transaction graph))
+          (when annotations (insert-triples annotations db transaction graph))
 
-          (recur kept
-                 [thin-json thin1 thin2] 
-                 [thick-json thick1 thick2]
-                 updated-unstated-annotation-backlog
-                 transaction))))))
+          (recur kept 
+                 (:thin-backlog annotation-handling)
+                 (:thick-backlog annotation-handling)
+                 (:unstated-annotation-backlog annotation-handling)
+                 transaction)))))) 
 
 ;TODO: we still cannot represent annotations/reifications that are not also stated
 (defn import-rdf-model
@@ -176,30 +178,5 @@
         annotation-triples (filter #(contains? % "annotation") thick-triples)
         superfuous (set (map #(dissoc % "annotation") annotation-triples))
         thick-triples (remove superfuous thick-triples)] 
-    (multi-insert thick-triples db 1 graph))) 
+    (insert-triples thick-triples db 1 graph))) 
 
-(defn -main
-  "Currently only used for manual testing."
-  [& args] 
-
-  ;(let [rdf-path (first args)
-  ;      is (new FileInputStream rdf-path)
-  ;      it (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")
-  ;      windowsize 50]
-
-  ;  (loop [backlog '()] 
-  ;    (when (.hasNext it) 
-  ;      (let [[thin kept thick] (parse/parse-window it windowsize backlog) 
-  ;             thick-rdf-string (map #(map parse/jena-triple-2-string %) thick)
-  ;             thick-json (map #(first (thin2thick/thin-2-thick %)) thick-rdf-string)]
-  ;        (run! println thick-json)
-  ;        ;(run! println (thin2thick/thin-2-thick (map parse/jena-triple-2-string thin)))
-  ;        ;(run! println (thin2thick/thin-2-thick (map #(map parse/jena-triple-2-string %) thick)))
-  ;        ;(thin2thick/thin-2-thick (map parse/jena-triple-2-string thin))
-  ;        (recur kept)))))
-          
-
-  ;(time (import-rdf-streamed (first args) (second args) "graph"))
-   (import-rdf-model (first args) (second args) "graph")
-  
-  ) 
