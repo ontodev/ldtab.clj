@@ -1,7 +1,7 @@
 (ns ldtab.prefix
   (:require [clojure.data.csv :as csv]
             [clojure.java.io :as io]
-            [clojure.string :as s]
+            [clojure.string :as str]
             [clojure.java.jdbc :as jdbc])
   (:gen-class)) 
 
@@ -31,7 +31,7 @@
   [db-path]
   (let [prefixes (query-prefixes db-path)
         prefix-strings (map #(str (:prefix %) "," (:base %) "\n") prefixes)
-        prefix-string (s/join prefix-strings)] 
+        prefix-string (str/join prefix-strings)] 
     (str "Prefixes in " db-path ":\n\n" prefix-string))) 
 
 (defn insert-prefixes

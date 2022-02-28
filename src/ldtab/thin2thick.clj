@@ -1,6 +1,6 @@
 (ns ldtab.thin2thick
-  (:require [clojure.set :as s]
-            [clojure.string :as string]
+  (:require [clojure.set :as set]
+            [clojure.string :as str]
             [ldtab.annotation-handling :as ann]
             [cheshire.core :as cs])
   (:import [org.apache.jena.graph NodeFactory Triple])
@@ -11,9 +11,9 @@
 ;TODO: add support for user input prefixes (using prefix table)
 (defn curify
   [s]
-  (let [owl (string/replace s #"http://www.w3.org/2002/07/owl#" "owl:") 
-        rdf (string/replace owl #"http://www.w3.org/1999/02/22-rdf-syntax-ns#" "rdf:") 
-        rdfs (string/replace rdf #"http://www.w3.org/2000/01/rdf-schema#" "rdfs:")]
+  (let [owl (str/replace s #"http://www.w3.org/2002/07/owl#" "owl:") 
+        rdf (str/replace owl #"http://www.w3.org/1999/02/22-rdf-syntax-ns#" "rdf:") 
+        rdfs (str/replace rdf #"http://www.w3.org/2000/01/rdf-schema#" "rdfs:")]
     rdfs)) 
 
 (defn map-on-hash-map-vals
@@ -76,7 +76,7 @@
   (let [subject-to-triples (group-by #(.getSubject %) triples)
         subjects (set (map #(.getSubject %) triples))
         objects (set (map #(.getObject %) triples))
-        root (s/difference subjects objects)
+        root (set/difference subjects objects)
         blank-roots (filter #(.isBlank %) root)
 
         additions (map #(new Triple (NodeFactory/createURI (str "wiring:blanknode:" (gensym))) 
@@ -136,7 +136,7 @@
   (let [subjects (set (map #(.getSubject %) triples))
         objects (map #(.getObject %) triples)
         object-blanknode (set (filter #(.isBlank %) objects))
-        root (s/difference subjects object-blanknode)
+        root (set/difference subjects object-blanknode)
         root-triples (filter #(contains? root (.getSubject %)) triples)]
     root-triples))
 

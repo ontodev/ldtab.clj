@@ -1,5 +1,5 @@
 (ns ldtab.parsing
-  (:require [clojure.set :as s]
+  (:require [clojure.set :as set]
             [ldtab.thin2thick :as t2t])
   (:import [java.io FileInputStream] 
            [org.apache.jena.riot RDFDataMgr Lang])) 
@@ -44,7 +44,7 @@
         ;TODO: this does not need to be recomputed recursively
         ;this map could be build up in a bottom-up fasion (however, this shouldn't speed things up too drastically)
         indirect (flatten (map #(get-blanknode-dependency % subject-2-blanknode) direct))]
-    (into () (remove nil? (s/union direct indirect))))) 
+    (into () (remove nil? (set/union direct indirect))))) 
 
 ;TODO write proper doc string 
 (defn add-triples
@@ -178,7 +178,7 @@
              ;or one of its dependencies
              (update-in res [(first ks) :updated] #(or %
                                                        (contains? updated (first ks))
-                                                       (not-empty (s/intersection
+                                                       (not-empty (set/intersection
                                                                     updated
                                                                     (set (get-in res [(first ks) :dependencies]))))))))))
 
