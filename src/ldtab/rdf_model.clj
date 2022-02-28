@@ -1,5 +1,5 @@
 (ns ldtab.rdf-model
-  (:require [clojure.set :as s])
+  (:require [clojure.set :as set])
   (:import [org.apache.jena.rdf.model ModelFactory]
            [org.apache.jena.riot RDFDataMgr]))
 
@@ -41,45 +41,3 @@
         dependency-triples (map #(map (fn [x] (.asTriple x)) %) subject-with-dependencies)]
    dependency-triples))
 
-;=======
-;=======
-;=======
-;NB: don't use this
-;this implementation is just a reference for testing/validation purposes
-(defn statement-to-string
-  [statement] 
-     (let [subject (.getSubject statement)
-           subject-rendering (if (.isBlank (.asNode subject))
-                                 (str "_:" (.getBlankNodeLabel (.asNode subject)))
-                                 (.toString subject))
-           predicate (.getPredicate statement)
-           predicate-rendering (.toString predicate)
-           object (.getObject statement)
-           object-rendering (if (.isBlank (.asNode object))
-                                 (str "_:" (.getBlankNodeLabel (.asNode object)))
-                                 (.toString object))] 
-       [subject-rendering predicate-rendering object-rendering]))
-
-(defn as-thin-triples-string
-  [input] 
-   (def in (RDFDataMgr/open input))
-
-   (def model (ModelFactory/createDefaultModel)) 
-   (.read model in "") 
-
-   (def iter (.listStatements model)) 
-   (def res '())
-   (while (.hasNext iter)
-     (let [statement (.nextStatement iter)
-           subject (.getSubject statement)
-           subject-rendering (if (.isBlank (.asNode subject))
-                                 (str "_:" (.getBlankNodeLabel (.asNode subject)))
-                                 (.toString subject))
-           predicate (.getPredicate statement)
-           predicate-rendering (.toString predicate)
-           object (.getObject statement)
-           object-rendering (if (.isBlank (.asNode object))
-                                 (str "_:" (.getBlankNodeLabel (.asNode object)))
-                                 (.toString object))]
-       (def res (conj res [subject-rendering predicate-rendering object-rendering]))))
-   res) 
