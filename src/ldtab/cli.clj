@@ -1,6 +1,6 @@
 (ns ldtab.cli
   (:require [clojure.tools.cli :refer [parse-opts]]
-            [clojure.string :as string]
+            [clojure.string :as str]
             [clojure.java.io :as io]
             [ldtab.init :as init-db]
             [ldtab.prefix :as prefix]
@@ -48,11 +48,11 @@
         "  import   Import an RDFXML file into the databse."
         ""
         "Please refer to the manual page for more information."]
-       (string/join \newline)))
+       (str/join \newline)))
 
 (defn error-msg [errors]
   (str "The following errors occurred while parsing your command:\n\n"
-       (string/join \newline errors)))
+       (str/join \newline errors)))
 
 (defn validate-init
   "Validate command line arguments for the `init` subcommand."
@@ -65,7 +65,7 @@
     errors 
     {:exit-message (error-msg errors)}
 
-    (not (= 2 (count arguments)))
+    (not= 2 (count arguments))
     {:exit-message "Invalid input: init requires a single argument."} 
 
     (.exists (io/as-file (second arguments)))
@@ -83,7 +83,7 @@
       {:exit-message (usage summary) :ok? true}
 
       (and (:list options) 
-           (not (= 2 (count arguments))))
+           (not= 2 (count arguments)))
       {:exit-message "Invalid input: prefix --list requires a single argument"}
 
       (and (:list options) 
@@ -93,7 +93,7 @@
       errors 
       {:exit-message (error-msg errors)}
 
-      (not (= 3 (count arguments)))
+      (not= 3 (count arguments))
       {:exit-message "Invalid input: prefix requires two arguments."} 
 
       (not (.exists (io/as-file (second arguments))))
@@ -116,7 +116,7 @@
     errors 
     {:exit-message (error-msg errors)}
 
-    (not (= 3 (count arguments)))
+    (not= 3 (count arguments))
     {:exit-message "Invalid input: import requires two arguments."} 
 
     (not (.exists (io/as-file (second arguments))))
@@ -175,7 +175,7 @@
         ontology (nth arguments 2)
         streamed (:streamed options)]
     (if streamed
-      (import-db/import-rdf-streamed db ontology "graph")
+      (import-db/import-rdf-stream db ontology "graph")
       (import-db/import-rdf-model db ontology "graph"))));TODO how do we handle the graph input?
 
 ;TODO handle options for subcommand
