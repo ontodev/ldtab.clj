@@ -92,8 +92,11 @@
     (.isBlank node) "_json"
     (.isURI node) "_IRI"
     ;NB: Jena can't identify plain literals
-    (.isLiteral node) (str (.getLiteralDatatypeURI node)
-                           (.getLiteralLanguage node))
+    (.isLiteral node) (let [datatype (.getLiteralDatatypeURI node)
+                            language (.getLiteralLanguage node)]
+                        (if-not (= language "")
+                          (str "@" language)
+                          datatype))
     :else "ERROR"))
 
 (defn encode-object
