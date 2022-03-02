@@ -160,29 +160,31 @@
   [thin-triples]
   (group-by #(.getSubject %) thin-triples)) 
 
-(defn thin-2-thick-raw
-   "Given a set of thin triples, return the corresponding set of (raw) thick triples."
-  ([triples]
-   (let [blank-node-encoding (encode-blank-nodes triples) 
-         subject-2-thin-triples (map-subject-2-thin-triples blank-node-encoding)
-         root-triples (root-triples blank-node-encoding) 
-         thick-triples (map #(thin-2-thick-raw % subject-2-thin-triples) root-triples)]
-     thick-triples))
-  ([triple subject-2-thin-triples]
+(defn thin-2-thick-triple-raw
   "Given a thin triple t and a map from subjects to thin triples,
     return t as a (raw) thick triple."
+  [triple subject-2-thin-triples]
   (let [s (.getSubject triple)
         p (.getPredicate triple)
         o (.getObject triple) 
         subject (node-2-thick-map s subject-2-thin-triples)
         predicate (node-2-thick-map p subject-2-thin-triples)
         object (node-2-thick-map o subject-2-thin-triples)]
-    {:subject subject, :predicate predicate, :object object, :datatype (get-datatype o)})))
+    {:subject subject, :predicate predicate, :object object, :datatype (get-datatype o)}))
 
+(defn thin-2-thick-raw
+   "Given a set of thin triples, return the corresponding set of (raw) thick triples."
+  [triples]
+   (let [blank-node-encoding (encode-blank-nodes triples) 
+         subject-2-thin-triples (map-subject-2-thin-triples blank-node-encoding)
+         root-triples (root-triples blank-node-encoding) 
+         thick-triples (map #(thin-2-thick-triple-raw % subject-2-thin-triples) root-triples)]
+     thick-triples))
 
 (defn thin-2-thick
   [triples]
   (let [raw-thick-triples (thin-2-thick-raw triples)
+        ;TODO I am requiring the use of CURIEs for owl, rdf, and rdfs
         annotations (map #(if (or (= (:predicate %) "owl:Annotation")
                                     (= (:predicate %) "owl:Axiom")
                                     (= (:predicate %) "rdf:Statement"))
