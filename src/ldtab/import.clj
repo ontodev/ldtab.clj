@@ -95,12 +95,9 @@
 
 (defn associate-annotations-with-statements
   [thin thick thin-backlog thick-backlog unstated-annotation-backlog]
-  ;input: thin thick thin-backlog thick-backlog unstated-annotation-backlog
-  ;output: [thin1 thin2 thin3] [thick1 thick2 thick3] updated-annotation-backlog
   (let [thin-json (thin2thick/thin-2-thick thin)
         thick-json (thin2thick/thin-2-thick thick) 
 
-        ;TODO refactor: the follownig is just annotatiion handling
         ;TODO set operations are slow
         annotation-json (filter #(contains? % "annotation") thick-json)
         thin-backlog-flat (set (flatten thin-backlog))
@@ -168,15 +165,20 @@
                  (:unstated-annotation-backlog annotation-handling)
                  transaction)))))) 
 
+(defn load-prefixes
+  [db]
+  (jdbc/query db ["SELECT * FROM prefix"]))
+
 ;TODO: we still cannot represent annotations/reifications that are not also stated
 (defn import-rdf-model
   [db-path rdf-path graph]
   (let [db (load-db db-path)
         thin-triples (rdf-model/group-thin-triple-dependencies rdf-path)
-        thick-triples (map thin2thick/thin-2-thick thin-triples)
+        iri2prefix (load-prefixes db)
+        thick-triples (map #(thin2thick/thin-2-thick % iri2prefix) thin-triples)
         thick-triples (apply concat thick-triples)
         annotation-triples (filter #(contains? % "annotation") thick-triples)
-        superfuous (set (map #(dissoc % "annotation") annotation-triples))
-        thick-triples (remove superfuous thick-triples)] 
+        superfluous (set (map #(dissoc % "annotation") annotation-triples))
+        thick-triples (remove superfluous thick-triples)]
     (insert-triples thick-triples db 1 graph))) 
 
