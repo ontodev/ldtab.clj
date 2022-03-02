@@ -126,7 +126,7 @@
   (hash-map :object (node-2-thick-map (.getObject triple) subject-2-thin-triples),
             :datatype (get-datatype (.getObject triple))))
 ([triple subject-2-thin-triples iri2prefix]
-  (hash-map :object (node-2-thick-map (.getObject triple) subject-2-thin-triples),
+  (hash-map :object (node-2-thick-map (.getObject triple) subject-2-thin-triples iri2prefix),
             :datatype (get-datatype (.getObject triple) iri2prefix))))
 
 (defn encode-node
@@ -254,4 +254,5 @@
                              %) raw-thick-triples)
          sorted (map sort-json annotations)
          normalised (map #(cs/parse-string (cs/generate-string %)) sorted)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
+     (println raw-thick-triples)
      normalised)))
