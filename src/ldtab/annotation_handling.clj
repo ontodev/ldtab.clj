@@ -1,9 +1,5 @@
 (ns ldtab.annotation-handling
-  (:require [clojure.repl :as repl]
-            [clojure.java.io :as io]
-            [clojure.set :as s]
-            [clojure.string :as string]
-            [cheshire.core :as cs])
+  (:require [cheshire.core :as cs])
   (:gen-class))
 
 ;TODO CURIEs
@@ -34,7 +30,7 @@
   [annotation-map previous-annotation]
   (let [annotated-property (get previous-annotation "owl:annotatedProperty")
         annotated-object (get previous-annotation "owl:annotatedTarget")]
-    (update annotation-map annotated-property #(into [] (map 
+    (update annotation-map annotated-property #(vec (map 
                                                           (fn [x] 
                                                             (if (= (:object x) annotated-object)
                                                               (assoc x :annotation (:annotation previous-annotation))
@@ -48,7 +44,7 @@
         object (:object (first (get predicate-map "owl:annotatedTarget"))) 
         datatype (:datatype (first (get predicate-map "owl:annotatedTarget")))
 
-        annotation-properties (filter #(not (is-owl-property? %)) (keys predicate-map))
+        annotation-properties (remove is-owl-property? (keys predicate-map))
         annotation-objects (map #(get predicate-map %) annotation-properties) 
         annotation-objects (map #(map (fn [x] (assoc x :meta "owl:Annotation")) %) annotation-objects) 
         annotation-map (zipmap annotation-properties annotation-objects)] 
@@ -73,7 +69,7 @@
         predicate (:object (first (get predicate-map "owl:annotatedProperty")))
         object (:object (first (get predicate-map "owl:annotatedTarget")))
 
-        annotation-properties (filter #(not (is-owl-property? %)) (keys predicate-map))
+        annotation-properties (remove is-owl-property? (keys predicate-map))
         annotation-objects (map #(get predicate-map %) annotation-properties) 
         annotation-objects (map #(map (fn [x] (assoc x :meta "owl:Annotation")) %) annotation-objects) 
         annotation-map (zipmap annotation-properties annotation-objects)
@@ -95,7 +91,7 @@
         predicate (:object (first (get predicate-map "rdf:predicate")))
         object (:object (first (get predicate-map "rdf:object"))) 
 
-        annotation-properties (filter #(not (is-owl-property? %)) (keys predicate-map))
+        annotation-properties (remove is-owl-property? (keys predicate-map))
         annotation-objects (map #(get predicate-map %) annotation-properties) 
         annotation-objects (map #(map (fn [x] (assoc x :meta "rdf:Reification")) %) annotation-objects) 
         annotation-map (zipmap annotation-properties annotation-objects)] 
@@ -116,7 +112,7 @@
         predicate (:object (first (get predicate-map "rdf:predicate")))
         object (:object (first (get predicate-map "rdf:object")))
 
-        annotation-properties (filter #(not (is-owl-property? %)) (keys predicate-map))
+        annotation-properties (remove is-owl-property? (keys predicate-map))
         annotation-objects (map #(get predicate-map %) annotation-properties) 
         annotation-objects (map #(map (fn [x] (assoc x :meta "rdf:Reification")) %) annotation-objects) 
         annotation-map (zipmap annotation-properties annotation-objects)
