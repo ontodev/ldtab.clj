@@ -18,7 +18,7 @@
 
 (defn curify-with
   [uri iri2prefix]
-  (let [found (first (filter #(str/includes? uri (:base %)) iri2prefix))]
+  (let [found (first (filter #(str/starts-with? uri (:base %)) iri2prefix))]
     (if found
       (str/replace uri (:base found) (str (:prefix found) ":"))
       (str "<" uri ">"))))
@@ -254,5 +254,4 @@
                              %) raw-thick-triples)
          sorted (map sort-json annotations)
          normalised (map #(cs/parse-string (cs/generate-string %)) sorted)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
-     (println raw-thick-triples)
      normalised)))
