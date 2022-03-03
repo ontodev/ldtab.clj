@@ -23,11 +23,11 @@
    :retraction 0 ;hard-coded value: data is being inserted
    :graph graph
    ;encode data as JSON strings
-   :subject (cs/generate-string subject)
-   :predicate (cs/generate-string predicate)
-   :object (cs/generate-string object)
-   :datatype (cs/generate-string datatype)
-   :annotation (cs/generate-string annotation)}) 
+   :subject (if (string? subject) subject (cs/generate-string subject))
+   :predicate predicate
+   :object (if (string? object) object (cs/generate-string object))
+   :datatype datatype
+   :annotation (when annotation (cs/generate-string annotation))}) 
 
 (defn insert-triples
   "Inserts a list of thick triples into a database."
