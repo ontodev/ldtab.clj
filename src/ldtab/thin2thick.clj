@@ -97,7 +97,7 @@
 (defn get-datatype 
   ([node]
   (cond 
-    (.isBlank node) "_json"
+    (.isBlank node) "_JSON"
     (.isURI node) "_IRI"
     ;NB: Jena can't identify plain literals
     (.isLiteral node) (let [datatype (.getLiteralDatatypeURI node)
@@ -108,7 +108,7 @@
     :else "ERROR"))
   ([node iri2prefix]
    (cond 
-     (.isBlank node) "_json"
+     (.isBlank node) "_JSON"
      (.isURI node) "_IRI"
      ;NB: Jena can't identify plain literals
      (.isLiteral node) (let [datatype (curify-with (.getLiteralDatatypeURI node) iri2prefix)
