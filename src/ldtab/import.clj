@@ -31,8 +31,8 @@
 
 (defn insert-triples
   "Inserts a list of thick triples into a database."
-  [json-triples db transaction graph]
-  (jdbc/insert-multi! db :statement (map #(encode-json transaction
+  [json-triples db table transaction graph]
+  (jdbc/insert-multi! db (keyword table) (map #(encode-json transaction
                                                        graph
                                                        (get % "subject")
                                                        (get % "predicate")
@@ -131,6 +131,7 @@
      :unstated-annotation-backlog updated-unstated-annotation-backlog}))
 
 
+;TODO update streamed approach to work with user-specifid tables
 (defn import-rdf-stream
   [db-path rdf-path graph]
   (let [db (load-db db-path)
@@ -171,7 +172,9 @@
 
 ;TODO: we still cannot represent annotations/reifications that are not also stated
 (defn import-rdf-model
-  [db-path rdf-path graph]
+  ([db-path rdf-path graph]
+   (import-rdf-model db-path "statement" rdf-path graph)) 
+  ([db-path table rdf-path graph]
   (let [db (load-db db-path)
         thin-triples (rdf-model/group-thin-triple-dependencies rdf-path)
         iri2prefix (load-prefixes db)
@@ -180,5 +183,5 @@
         annotation-triples (filter #(contains? % "annotation") thick-triples)
         superfluous (set (map #(dissoc % "annotation") annotation-triples))
         thick-triples (remove superfluous thick-triples)]
-    (insert-triples thick-triples db 1 graph))) 
+    (insert-triples thick-triples db table 1 graph))))
 

@@ -26,6 +26,8 @@
 
 (def import-options
   [["-h" "--help"]
+   ["-t" "--table TABLE" "Table"
+    :parse-fn #(identity %)]
    ["-s" "--streamed"]])
 
 (def export-options
@@ -173,10 +175,15 @@
   (let [{:keys [options arguments errors summary]} (parse-opts command import-options)
         db (second arguments)
         ontology (nth arguments 2)
-        streamed (:streamed options)]
+        streamed (:streamed options)
+        table (:table options)]
     (if streamed
-      (import-db/import-rdf-stream db ontology "graph")
-      (import-db/import-rdf-model db ontology "graph"))));TODO how do we handle the graph input?
+      (if table
+        (println "Streamed procesing doesn't provide support for option --table (yet)")
+        (import-db/import-rdf-stream db ontology "graph"))
+      (if table
+        (import-db/import-rdf-model db table ontology "graph")
+        (import-db/import-rdf-model db ontology "graph")))));TODO how do we handle the graph input?
 
 ;TODO handle options for subcommand
 ;TODO validate tsv file
