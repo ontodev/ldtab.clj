@@ -4,7 +4,8 @@
             [clojure.java.io :as io]
             [ldtab.init :as init-db]
             [ldtab.prefix :as prefix]
-            [ldtab.import :as import-db])
+            [ldtab.import :as import-db]
+            [ldtab.export :as export-db])
   (:gen-class))
 
 ;TODO what kind of options should LDTab provide?
@@ -130,6 +131,32 @@
     :else
     {:action command})))
 
+(defn validate-export 
+  "Validate command line arguments for the `export` subcommand."
+  [command]
+  (let [{:keys [options arguments errors summary]} (parse-opts command import-options)]
+  (cond
+    (:help options) 
+    {:exit-message (usage summary) :ok? true}
+
+    errors 
+    {:exit-message (error-msg errors)}
+
+    (not= 4 (count arguments))
+    {:exit-message "Invalid input: export requires three arguments."} 
+
+    (not (.exists (io/as-file (second arguments))))
+    {:exit-message "Invalid input: database (first argument) does not exist."} 
+
+    ;TODO: check that table exists in database? 
+    ;{:exit-message "Invalid input: table does not exist in database."} 
+
+    (.exists (io/as-file (nth arguments 3)))
+    {:exit-message "Invalid input: output file (third argument) already exists."} 
+
+    :else
+    {:action command})))
+
 (defn validate-args
   "Validate command line arguments. Either return a map indicating the program
   should exit (with an error message, and optional ok status), or a map
@@ -152,7 +179,8 @@
       (= "import" (first arguments))
       (assoc (validate-import arguments) :options options)
 
-      ;TODO implement support for export
+      (= "export" (first arguments))
+      (assoc (validate-export arguments) :options options)
 
       :else 
       {:exit-message (usage summary)})))
@@ -185,6 +213,14 @@
         (import-db/import-rdf-model db table ontology "graph")
         (import-db/import-rdf-model db ontology "graph")))));TODO how do we handle the graph input?
 
+(defn ldtab-export
+  [command]
+  (let [{:keys [options arguments errors summary]} (parse-opts command import-options)
+        db (second arguments)
+        table (nth arguments 2)
+        output (nth arguments 3)];TODO: add options for output format
+    (export-db/export-tsv db table output)))
+
 ;TODO handle options for subcommand
 ;TODO validate tsv file
 ;TODO issue #3 says to print prefixes if second argument is missing
@@ -202,7 +238,7 @@
       (= subcommand "init") (ldtab-init command)
       (= subcommand "prefix") (ldtab-prefix command)
       (= subcommand "import") (ldtab-import command)
-      (= subcommand "export") (parse-opts command export-options :in-order true);TODO
+      (= subcommand "export") (ldtab-export command)
       :else "Unknown subcommand")))
 
 (defn -main [& args]
