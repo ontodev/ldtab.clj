@@ -32,7 +32,12 @@
    ["-s" "--streamed"]])
 
 (def export-options
-  [["-h" "--help"]])
+  [["-h" "--help"]
+   ["-t" "--table TABLE" "Table"
+    :parse-fn #(identity %)] 
+   ["-f" "--format FORMAT" "Output format"
+    :parse-fn #(identity %)]
+   ])
 
 (defn usage [options-summary]
   (->> ["LDTab is a tool for working with RDF datasets and OWL using SQL databases."
@@ -134,7 +139,7 @@
 (defn validate-export 
   "Validate command line arguments for the `export` subcommand."
   [command]
-  (let [{:keys [options arguments errors summary]} (parse-opts command import-options)]
+  (let [{:keys [options arguments errors summary]} (parse-opts command export-options)]
   (cond
     (:help options) 
     {:exit-message (usage summary) :ok? true}
@@ -142,17 +147,14 @@
     errors 
     {:exit-message (error-msg errors)}
 
-    (not= 4 (count arguments))
-    {:exit-message "Invalid input: export requires three arguments."} 
+    (not= 3 (count arguments))
+    {:exit-message "Invalid input: export requires two arguments."} 
 
     (not (.exists (io/as-file (second arguments))))
     {:exit-message "Invalid input: database (first argument) does not exist."} 
 
-    ;TODO: check that table exists in database? 
-    ;{:exit-message "Invalid input: table does not exist in database."} 
-
-    (.exists (io/as-file (nth arguments 3)))
-    {:exit-message "Invalid input: output file (third argument) already exists."} 
+    (.exists (io/as-file (nth arguments 2)))
+    {:exit-message "Invalid input: output file (second argument) already exists."} 
 
     :else
     {:action command})))
@@ -215,11 +217,13 @@
 
 (defn ldtab-export
   [command]
-  (let [{:keys [options arguments errors summary]} (parse-opts command import-options)
-        db (second arguments)
-        table (nth arguments 2)
-        output (nth arguments 3)];TODO: add options for output format
-    (export-db/export-tsv db table output)))
+  (let [{:keys [options arguments errors summary]} (parse-opts command export-options)
+        db (second arguments) 
+        output (nth arguments 2)
+        table (:table options)];TODO: add options for output format
+    (if table 
+      (export-db/export-tsv db table output)
+      (export-db/export-tsv db output))))
 
 ;TODO handle options for subcommand
 ;TODO validate tsv file
