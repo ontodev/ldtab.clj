@@ -16,10 +16,14 @@
   :subname path})
 
 (defn triple-2-tsv
+  "Given a ThickTriple
+   return a string of the triple's values separated by tabs."
   [triple]
    (str/join "\t" (vals triple)))
 
 (defn get-tsv-header
+  "Given a list of maps,
+   return a string of the map's keys separated by tabs."
   [data]
   (let [triple (first data)
         ks (keys triple)
@@ -28,6 +32,8 @@
     header))
 
 (defn export-tsv
+  "Given a path to an SQLite database containing ThickTriples,
+   write ThickTriples in a TSV file to output."
   ([dp-path output]
    (export-tsv dp-path "statement" output))
   ([db-path table output] 
