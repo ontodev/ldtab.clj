@@ -150,11 +150,18 @@
         prefix-2-base (get-prefix-map prefixes)
         subject (translate s prefix-2-base model)
         predicate (.createProperty model (curie-2-uri p prefix-2-base))]
-    (if (or (= datatype "_IRI")
-            (= datatype "_JSON"))
-      (.add model subject predicate (translate (cs/parse-string o true) prefix-2-base model))
-      (.add model subject predicate (translate-literal o datatype model)))
+    (cond
+     (= datatype "_JSON") (.add model subject predicate (translate (cs/parse-string o true) prefix-2-base model))
+     (= datatype "_IRI") (.add model subject predicate (.createResource model (curie-2-uri o prefix-2-base)))
+     :else (.add model subject predicate (translate-literal o datatype model)))
     model))
+
+(defn stanza-2-rdf-model
+  [thick-triples prefixes]
+  (let [models (map #(thick-2-rdf-model % prefixes) thick-triples) 
+        model (reduce #(.add %1 %2) models)]
+    model))
+
 
 (defn load-db
   [path]
@@ -168,10 +175,14 @@
   [& args]
   (let [db (load-db (first args))
         prefix (jdbc/query db [(str "SELECT * FROM prefix")]) 
-        data (jdbc/query db [(str "SELECT * FROM statement LIMIT 25")])]
-      (doseq [row data]
-        (when (= (:datatype row) "_JSON")
-        (.write (thick-2-rdf-model row prefix) System/out)))))
+        ;data (jdbc/query db [(str "SELECT * FROM statement LIMIT 25")])]
+        data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0302905'")])
+        model (stanza-2-rdf-model data prefix)]
+    ;(println (cast Model model))))
+    (.write model System/out)))
+      ;(doseq [row data]
+      ;  (println row)
+      ;  (.write (thick-2-rdf-model row prefix) System/out))))
           ;(println row)))))
         ;(.write (thick-2-rdf-model row prefix) System/out))))
         ;(println row))))
