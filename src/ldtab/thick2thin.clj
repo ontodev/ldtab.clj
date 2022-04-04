@@ -132,12 +132,11 @@
                     (:prefix (first ps))
                     (:base (first ps))))))) 
 
-;TODO datatype URIs
 (defn translate-literal
-  [literal datatype-language-tag model]
+  [literal datatype-language-tag prefix-2-base model]
   (if (str/starts-with? datatype-language-tag "@" )
     (.createLiteral model literal (subs datatype-language-tag 1))
-    (.createTypedLiteral model literal datatype-language-tag)));TODO use full URIs here?
+    (.createTypedLiteral model literal (curie-2-uri datatype-language-tag prefix-2-base))))
 
 (defn thick-2-rdf-model
   [thick-triple prefixes]
@@ -153,7 +152,7 @@
     (cond
      (= datatype "_JSON") (.add model subject predicate (translate (cs/parse-string o true) prefix-2-base model))
      (= datatype "_IRI") (.add model subject predicate (.createResource model (curie-2-uri o prefix-2-base)))
-     :else (.add model subject predicate (translate-literal o datatype model)))
+     :else (.add model subject predicate (translate-literal o datatype prefix-2-base model)))
     model))
 
 (defn stanza-2-rdf-model
@@ -178,11 +177,8 @@
         ;data (jdbc/query db [(str "SELECT * FROM statement LIMIT 25")])]
         data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0302905'")])
         model (stanza-2-rdf-model data prefix)]
-    ;(println (cast Model model))))
-    (.write model System/out)))
+    (.write model System/out "TTL")))
       ;(doseq [row data]
       ;  (println row)
       ;  (.write (thick-2-rdf-model row prefix) System/out))))
           ;(println row)))))
-        ;(.write (thick-2-rdf-model row prefix) System/out))))
-        ;(println row))))
