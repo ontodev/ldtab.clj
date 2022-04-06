@@ -119,17 +119,72 @@
     bnode))
 
 (defn translate-union
-  [object-map prefix-2-base model]
-  ""
-  )
+  [object-map prefix-2-base model] 
+  (let [get-object (curry-predicate-map object-map)
+        arguments (translate (get-object :owl:unionOf) prefix-2-base model) 
+
+        owl-class (curie-2-uri "owl:Class" prefix-2-base)
+        owl-union (curie-2-uri "owl:unionOf" prefix-2-base)
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        owl-union (.createProperty model owl-union)
+        owl-class (.createResource model owl-class)
+        rdf-type (.createProperty model rdf-type)
+
+        bnode (.createResource model)]
+
+    (.add model bnode owl-union arguments)
+    (.add model bnode rdf-type owl-class)
+
+    bnode)) 
+
+(defn translate-class-one-of
+  [object-map prefix-2-base model] 
+  (let [get-object (curry-predicate-map object-map)
+        arguments (translate (get-object :owl:unionOf) prefix-2-base model) 
+
+        owl-class (curie-2-uri "owl:Class" prefix-2-base)
+        owl-one-of (curie-2-uri "owl:oneOf" prefix-2-base)
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        owl-one-of (.createProperty model owl-one-of)
+        owl-class (.createResource model owl-class)
+        rdf-type (.createProperty model rdf-type)
+
+        bnode (.createResource model)]
+
+    (.add model bnode owl-one-of arguments)
+    (.add model bnode rdf-type owl-class)
+
+    bnode)) 
+
+(defn translate-class-complement
+  [object-map prefix-2-base model] 
+  (let [get-object (curry-predicate-map object-map)
+        argument (translate (get-object :owl:complementOf) prefix-2-base model) 
+
+        owl-class (curie-2-uri "owl:Class" prefix-2-base)
+        owl-complement-of (curie-2-uri "owl:oneOf" prefix-2-base)
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        owl-complement-of (.createProperty model owl-complement-of)
+        owl-class (.createResource model owl-class)
+        rdf-type (.createProperty model rdf-type)
+
+        bnode (.createResource model)]
+
+    (.add model bnode owl-complement-of argument)
+    (.add model bnode rdf-type owl-class)
+
+    bnode)) 
 
 (defn translate-class
   [object-map prefix-2-base model]
   (cond
     (contains? object-map :owl:intersectionOf) (translate-intersection object-map prefix-2-base model)
-    (contains? object-map :owl:unionOf) (translate-union object-map prefix-2-base model)))
-    ;(contains? object-map :owl:oneOf) 
-    ;(contains? object-map :owl:complementOf) 
+    (contains? object-map :owl:unionOf) (translate-union object-map prefix-2-base model)
+    (contains? object-map :owl:oneOf) (translate-class-one-of object-map prefix-2-base model)
+    (contains? object-map :owl:complementOf) (translate-class-complement object-map prefix-2-base model)))
 
 (defn translate-datatype
   [object-map prefix-2-base model]
