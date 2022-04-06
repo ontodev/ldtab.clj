@@ -77,9 +77,59 @@
     ;exactQuali
     ))
 
+(defn translate-list
+  [object-map prefix-2-base model]
+  (let [get-object (curry-predicate-map object-map)
+        first-argument (translate (get-object :rdf:first) prefix-2-base model) 
+        rest-argument (translate (get-object :rdf:rest) prefix-2-base model)
+        
+        rdf-first (curie-2-uri "rdf:first" prefix-2-base)
+        rdf-rest (curie-2-uri "rdf:rest" prefix-2-base)
+        ;rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        rdf-first (.createProperty model rdf-first)
+        rdf-rest (.createProperty model rdf-rest)
+        ;rdf-type (.createProperty model rdf-type)
+
+        bnode (.createResource model)]
+
+    (.add model bnode rdf-first first-argument)
+    (.add model bnode rdf-rest rest-argument)
+
+    bnode))
+
+(defn translate-intersection
+  [object-map prefix-2-base model]
+  (let [get-object (curry-predicate-map object-map)
+        arguments (translate (get-object :owl:intersectionOf) prefix-2-base model) 
+
+        owl-class (curie-2-uri "owl:Class" prefix-2-base)
+        owl-intersection (curie-2-uri "owl:intersectionOf" prefix-2-base)
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        owl-intersection (.createProperty model owl-intersection)
+        owl-class (.createResource model owl-class)
+        rdf-type (.createProperty model rdf-type)
+
+        bnode (.createResource model)]
+
+    (.add model bnode owl-intersection arguments)
+    (.add model bnode rdf-type owl-class)
+
+    bnode))
+
+(defn translate-union
+  [object-map prefix-2-base model]
+  ""
+  )
+
 (defn translate-class
   [object-map prefix-2-base model]
-  "")
+  (cond
+    (contains? object-map :owl:intersectionOf) (translate-intersection object-map prefix-2-base model)
+    (contains? object-map :owl:unionOf) (translate-union object-map prefix-2-base model)))
+    ;(contains? object-map :owl:oneOf) 
+    ;(contains? object-map :owl:complementOf) 
 
 (defn translate-datatype
   [object-map prefix-2-base model]
@@ -96,7 +146,10 @@
 
 (defn translate-untyped-map
   [object-map prefix-2-base model]
-  "")
+  (cond
+    (contains? object-map :rdf:first) (translate-list object-map prefix-2-base model)
+    (contains? object-map :owl:intersectionOf) (translate-intersection object-map prefix-2-base model)
+    :else (println "Untyped ERROR")))
 
 (defn translate-object-map
   [object-map prefix-2-base model]
@@ -105,6 +158,7 @@
     (translate-typed-map object-map prefix-2-base model)
     (translate-untyped-map object-map prefix-2-base model))) 
 
+;this takes thick triple input 0
 (defn translate
   [object prefix-2-base model] 
   (if (map? object)
