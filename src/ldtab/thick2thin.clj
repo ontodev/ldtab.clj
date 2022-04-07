@@ -3,9 +3,11 @@
             [clojure.string :as str]
             [ldtab.annotation-handling :as ann]
             [clojure.java.jdbc :as jdbc]
+            [clojure.java.io :as io]
             [cheshire.core :as cs])
   (:import [org.apache.jena.graph NodeFactory Triple]
            [org.apache.jena.rdf.model Model ModelFactory Resource]
+           [org.apache.jena.riot RDFDataMgr RDFFormat Lang]
            [org.apache.jena.graph NodeFactory])
   (:gen-class))
 
@@ -60,21 +62,277 @@
 (defn translate-all
   [object-map prefix-2-base model]
   (let [get-object (curry-predicate-map object-map)
-        on-property (get-object :owl:onProperty)
-        all-values (get-object :owl:allValuesFrom)]
-  ""))
+        property (translate (get-object :owl:onProperty) prefix-2-base model)
+        filler (translate (get-object :owl:allValuesFrom) prefix-2-base model)
+
+        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
+        owl-all-values (curie-2-uri "owl:allValuesFrom" prefix-2-base)
+        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        on-property (.createProperty model owl-on-property)
+        some-values (.createProperty model owl-all-values) 
+        rdf-type (.createProperty model rdf-type)
+
+        restriction (.createResource model owl-restriction) 
+        bnode (.createResource model)]
+
+    (.add model bnode some-values filler)
+    (.add model bnode on-property property)
+    (.add model bnode rdf-type restriction)
+
+    bnode))
+
+(defn translate-min-cardinality 
+  [object-map prefix-2-base model]
+  (let [get-object (curry-predicate-map object-map)
+        property (translate (get-object :owl:onProperty) prefix-2-base model)
+        cardinality (get-object :owl:minCardinality)
+        
+        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
+        owl-min-cardinality (curie-2-uri "owl:minCardinality" prefix-2-base)
+        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        on-property (.createProperty model owl-on-property)
+        min-cardinality (.createProperty model owl-min-cardinality)
+        rdf-type (.createProperty model rdf-type)
+        cardinality (.createTypedLiteral model cardinality (curie-2-uri "xsd:nonNegativeInteger" prefix-2-base)) 
+        
+        restriction (.createResource model owl-restriction)
+
+        ;bnode (NodeFactory/createBlankNode)]
+        bnode (.createResource model)]
+
+    (.add model bnode on-property property)
+    (.add model bnode min-cardinality cardinality)
+    (.add model bnode rdf-type restriction)
+
+    bnode)) 
+
+(defn translate-min-qualified-cardinality 
+  [object-map prefix-2-base model]
+  (let [get-object (curry-predicate-map object-map)
+        property (translate (get-object :owl:onProperty) prefix-2-base model)
+        filler (translate (get-object :owl:onClass) prefix-2-base model)
+        cardinality (get-object :owl:minQualifiedCardinality)
+        
+        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
+        owl-on-class (curie-2-uri "owl:onClass" prefix-2-base)
+        owl-min-cardinality (curie-2-uri "owl:minQualifiedCardinality" prefix-2-base)
+        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        on-property (.createProperty model owl-on-property)
+        on-class (.createProperty model owl-on-class)
+        min-cardinality (.createProperty model owl-min-cardinality)
+        rdf-type (.createProperty model rdf-type)
+        cardinality (.createTypedLiteral model cardinality (curie-2-uri "xsd:nonNegativeInteger" prefix-2-base)) 
+        
+        restriction (.createResource model owl-restriction)
+
+        ;bnode (NodeFactory/createBlankNode)]
+        bnode (.createResource model)]
+
+    (.add model bnode on-property property)
+    (.add model bnode min-cardinality cardinality)
+    (.add model bnode rdf-type restriction)
+    (.add model bnode on-class filler)
+
+    bnode)) 
+
+(defn translate-max-cardinality 
+  [object-map prefix-2-base model]
+  (let [get-object (curry-predicate-map object-map)
+        property (translate (get-object :owl:onProperty) prefix-2-base model)
+        cardinality (get-object :owl:maxCardinality)
+        
+        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
+        owl-max-cardinality (curie-2-uri "owl:maxCardinality" prefix-2-base)
+        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        on-property (.createProperty model owl-on-property)
+        max-cardinality (.createProperty model owl-max-cardinality)
+        rdf-type (.createProperty model rdf-type)
+        cardinality (.createTypedLiteral model cardinality (curie-2-uri "xsd:nonNegativeInteger" prefix-2-base)) 
+        
+        restriction (.createResource model owl-restriction)
+
+        ;bnode (NodeFactory/createBlankNode)]
+        bnode (.createResource model)]
+
+    (.add model bnode on-property property)
+    (.add model bnode max-cardinality cardinality)
+    (.add model bnode rdf-type restriction)
+
+    bnode)) 
+
+(defn translate-max-qualified-cardinality 
+  [object-map prefix-2-base model]
+  (let [get-object (curry-predicate-map object-map)
+        property (translate (get-object :owl:onProperty) prefix-2-base model)
+        filler (translate (get-object :owl:onClass) prefix-2-base model)
+        cardinality (get-object :owl:maxQualifiedCardinality)
+        
+        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
+        owl-on-class (curie-2-uri "owl:onClass" prefix-2-base)
+        owl-max-cardinality (curie-2-uri "owl:maxQualifiedCardinality" prefix-2-base)
+        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        on-property (.createProperty model owl-on-property)
+        on-class (.createProperty model owl-on-class)
+        max-cardinality (.createProperty model owl-max-cardinality)
+        rdf-type (.createProperty model rdf-type)
+        cardinality (.createTypedLiteral model cardinality (curie-2-uri "xsd:nonNegativeInteger" prefix-2-base)) 
+        
+        restriction (.createResource model owl-restriction)
+
+        ;bnode (NodeFactory/createBlankNode)]
+        bnode (.createResource model)]
+
+    (.add model bnode on-property property)
+    (.add model bnode max-cardinality cardinality)
+    (.add model bnode rdf-type restriction)
+    (.add model bnode on-class filler)
+
+    bnode)) 
+
+(defn translate-exact-cardinality 
+  [object-map prefix-2-base model]
+  (let [get-object (curry-predicate-map object-map)
+        property (translate (get-object :owl:onProperty) prefix-2-base model)
+        cardinality (get-object :owl:cardinality)
+        
+        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
+        owl-cardinality (curie-2-uri "owl:cardinality" prefix-2-base)
+        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        on-property (.createProperty model owl-on-property)
+        exact-cardinality (.createProperty model owl-cardinality)
+        rdf-type (.createProperty model rdf-type)
+        cardinality (.createTypedLiteral model cardinality (curie-2-uri "xsd:nonNegativeInteger" prefix-2-base)) 
+        
+        restriction (.createResource model owl-restriction)
+
+        ;bnode (NodeFactory/createBlankNode)]
+        bnode (.createResource model)]
+
+    (.add model bnode on-property property)
+    (.add model bnode exact-cardinality cardinality)
+    (.add model bnode rdf-type restriction)
+
+    bnode)) 
+
+(defn translate-exact-qualified-cardinality 
+  [object-map prefix-2-base model]
+  (let [get-object (curry-predicate-map object-map)
+        property (translate (get-object :owl:onProperty) prefix-2-base model)
+        filler (translate (get-object :owl:onClass) prefix-2-base model)
+        cardinality (get-object :owl:qualifiedCardinality)
+        
+        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
+        owl-on-class (curie-2-uri "owl:onClass" prefix-2-base)
+        owl-exact-cardinality (curie-2-uri "owl:qualifiedCardinality" prefix-2-base)
+        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        on-property (.createProperty model owl-on-property)
+        on-class (.createProperty model owl-on-class)
+        exact-cardinality (.createProperty model owl-exact-cardinality)
+        rdf-type (.createProperty model rdf-type)
+        cardinality (.createTypedLiteral model cardinality (curie-2-uri "xsd:nonNegativeInteger" prefix-2-base)) 
+        
+        restriction (.createResource model owl-restriction)
+
+        ;bnode (NodeFactory/createBlankNode)]
+        bnode (.createResource model)]
+
+    (.add model bnode on-property property)
+    (.add model bnode exact-cardinality cardinality)
+    (.add model bnode rdf-type restriction)
+    (.add model bnode on-class filler)
+
+    bnode)) 
+
+
+(defn translate-has-self 
+  [object-map prefix-2-base model]
+  (let [get-object (curry-predicate-map object-map)
+        property (translate (get-object :owl:onProperty) prefix-2-base model)
+        
+        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
+        owl-has-self (curie-2-uri "owl:hasSelf" prefix-2-base)
+        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        on-property (.createProperty model owl-on-property)
+        has-self (.createProperty model owl-has-self)
+        rdf-type (.createProperty model rdf-type)
+        self (.createTypedLiteral model "true" (curie-2-uri "xsd:boolean" prefix-2-base)) 
+        
+        restriction (.createResource model owl-restriction)
+
+        ;bnode (NodeFactory/createBlankNode)]
+        bnode (.createResource model)]
+
+    (.add model bnode on-property property)
+    (.add model bnode has-self self)
+    (.add model bnode rdf-type restriction)
+
+    bnode)) 
+
+(defn translate-has-value 
+  [object-map prefix-2-base model]
+  (let [get-object (curry-predicate-map object-map)
+        property (translate (get-object :owl:onProperty) prefix-2-base model)
+        individual (translate (get-object :owl:hasValue) prefix-2-base model)
+        
+        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
+        owl-has-value (curie-2-uri "owl:hasValue" prefix-2-base)
+        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        on-property (.createProperty model owl-on-property)
+        has-value (.createProperty model owl-has-value)
+        rdf-type (.createProperty model rdf-type)
+        
+        restriction (.createResource model owl-restriction)
+
+        ;bnode (NodeFactory/createBlankNode)]
+        bnode (.createResource model)]
+
+    (.add model bnode on-property property)
+    (.add model bnode has-value individual);TODO test
+    (.add model bnode rdf-type restriction)
+
+    bnode)) 
+
+
 
 (defn translate-restriction
   [object-map prefix-2-base model]
   (cond
     (contains? object-map :owl:someValuesFrom) (translate-some object-map prefix-2-base model)
     (contains? object-map :owl:allValuesFrom) (translate-all object-map prefix-2-base model)
-    ;min
-    ;minQuali
-    ;max
-    ;maxQuali
-    ;exact
-    ;exactQuali
+    (contains? object-map :owl:minCardinality) (translate-min-cardinality object-map prefix-2-base model)
+    (and (contains? object-map :owl:minQualifiedCardinality)
+         (contains? object-map :owl:onClass))
+    (translate-min-qualified-cardinality object-map prefix-2-base model) 
+    (contains? object-map :owl:maxCardinality) (translate-max-cardinality object-map prefix-2-base model)
+    (and (contains? object-map :owl:maxQualifiedCardinality) 
+         (contains? object-map :owl:onClass)) 
+    (translate-max-qualified-cardinality object-map prefix-2-base model)
+    (contains? object-map :owl:cardinality) (translate-exact-cardinality object-map prefix-2-base model)
+    (and (contains? object-map :owl:qualifiedCardinality) 
+         (contains? object-map :owl:onClass)) 
+    (translate-exact-qualified-cardinality object-map prefix-2-base model)
+    (contains? object-map :owl:hasSelf) (translate-has-self object-map prefix-2-base model)
+    (contains? object-map :owl:hasValue) (translate-has-value object-map prefix-2-base model)
+    ;onDataRange (qualifiedCardinliaties)
+
     ))
 
 (defn translate-list
@@ -85,11 +343,9 @@
         
         rdf-first (curie-2-uri "rdf:first" prefix-2-base)
         rdf-rest (curie-2-uri "rdf:rest" prefix-2-base)
-        ;rdf-type (curie-2-uri "rdf:type" prefix-2-base)
 
         rdf-first (.createProperty model rdf-first)
         rdf-rest (.createProperty model rdf-rest)
-        ;rdf-type (.createProperty model rdf-type)
 
         bnode (.createResource model)]
 
@@ -285,8 +541,19 @@
         prefix (jdbc/query db [(str "SELECT * FROM prefix")]) 
         ;data (jdbc/query db [(str "SELECT * FROM statement LIMIT 25")])]
         data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0302905'")])
-        model (stanza-2-rdf-model data prefix)]
-    (.write model System/out "TTL")))
+        model (stanza-2-rdf-model data prefix)
+        ;data2 (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0002946'")])
+        data2 (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:IAO_0000032'")])
+        model2 (stanza-2-rdf-model data2 prefix)
+        
+        out (io/output-stream "ddd")]
+    (.write model System/out "TTL")
+    (.write model2 System/out "TTL")
+    ;(RDFDataMgr/write out model (Lang/TTL))
+    ;(RDFDataMgr/write out model2 (Lang/TTL))
+    ;(RDFDataMgr/write out model (RDFFormat/TURTLE_BLOCKS))
+    ;(RDFDataMgr/write out model2 (RDFFormat/TURTLE_BLOCKS))
+    ))
       ;(doseq [row data]
       ;  (println row)
       ;  (.write (thick-2-rdf-model row prefix) System/out))))
