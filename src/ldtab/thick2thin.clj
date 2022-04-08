@@ -452,6 +452,26 @@
     (.add model bnode rdf-type disjoint-classes)
     bnode))
 
+(defn translate-all-different
+  [object-map prefix-2-base model]
+  (let [get-object (curry-predicate-map object-map)
+        ;arguments (translate (get-object :owl:members) prefix-2-base model)
+        ;TODO check distinctMembers vs members
+        arguments (translate (get-object :owl:distinctMembers) prefix-2-base model)
+
+        owl-members (curie-2-uri "owl:members" prefix-2-base)
+        owl-disjoint-classes (curie-2-uri "owl:AllDifferent" prefix-2-base)
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        members (.createProperty model owl-members)
+        disjoint-classes (.createResource model owl-disjoint-classes)
+        rdf-type (.createProperty model rdf-type)
+        bnode (.createResource model)]
+
+    (.add model bnode members arguments)
+    (.add model bnode rdf-type disjoint-classes)
+    bnode))
+
 
 
 (defn translate-class
@@ -475,6 +495,7 @@
       "owl:Class" (translate-class object-map prefix-2-base model)
       "rdfs:Datatype" (translate-datatype object-map prefix-2-base model)
       "owl:AllDisjointClasses" (translate-all-disjoint-classes object-map prefix-2-base model)
+      "owl:AllDifferent" (translate-all-different object-map prefix-2-base model)
       )))
 
 (defn translate-untyped-map
@@ -540,6 +561,7 @@
     (cond
       (= p "<unknown>") (println (str "ERROR Unknown Predicate: " thick-triple));TODO : handle wiring specific things
       (= p "owl:AllDisjointClasses") (translate (cs/parse-string o true) prefix-2-base model)
+      (= p "owl:AllDifferent") (translate (cs/parse-string o true) prefix-2-base model)
       (= datatype "_JSON") (.add model subject predicate (translate (cs/parse-string o true) prefix-2-base model))
       (= datatype "_IRI") (.add model subject predicate (.createResource model (curie-2-uri o prefix-2-base)))
       :else (.add model subject predicate (translate-literal o datatype prefix-2-base model)))
