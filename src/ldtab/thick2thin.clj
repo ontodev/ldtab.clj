@@ -31,7 +31,11 @@
         base (get prefix-2-base prefix)]
     (if base
       (str base local)
-      curie)))
+      (if (and (str/starts-with? curie "<")
+               (str/ends-with? curie ">"))
+        (subs curie 1 (- (count curie) 1));remove enclosing < >
+        curie))))
+      ;curie)))
 
 (defn translate-some
   [object-map prefix-2-base model]
@@ -600,8 +604,10 @@
   (let [db (load-db (first args))
         prefix (jdbc/query db [(str "SELECT * FROM prefix")]) 
         ;data (jdbc/query db [(str "SELECT * FROM statement LIMIT 25")])
-        data (jdbc/query db [(str "SELECT * FROM statement")])
+        ;data (jdbc/query db [(str "SELECT * FROM statement")])
         ;data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0302905'")])
+        data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0000797'")])
+ 
         model (stanza-2-rdf-model data prefix)
         ;data2 (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0002946'")])
         ;data2 (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:IAO_0000032'")])
