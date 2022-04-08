@@ -397,7 +397,7 @@
 (defn translate-class-one-of
   [object-map prefix-2-base model] 
   (let [get-object (curry-predicate-map object-map)
-        arguments (translate (get-object :owl:unionOf) prefix-2-base model) 
+        arguments (translate (get-object :owl:oneOf) prefix-2-base model) 
 
         owl-class (curie-2-uri "owl:Class" prefix-2-base)
         owl-one-of (curie-2-uri "owl:oneOf" prefix-2-base)
@@ -420,7 +420,7 @@
         argument (translate (get-object :owl:complementOf) prefix-2-base model) 
 
         owl-class (curie-2-uri "owl:Class" prefix-2-base)
-        owl-complement-of (curie-2-uri "owl:oneOf" prefix-2-base)
+        owl-complement-of (curie-2-uri "owl:complementOf" prefix-2-base)
         rdf-type (curie-2-uri "rdf:type" prefix-2-base)
 
         owl-complement-of (.createProperty model owl-complement-of)
@@ -433,6 +433,26 @@
     (.add model bnode rdf-type owl-class)
 
     bnode)) 
+
+(defn translate-all-disjoint-classes
+  [object-map prefix-2-base model]
+  (let [get-object (curry-predicate-map object-map)
+        arguments (translate (get-object :owl:members) prefix-2-base model)
+
+        owl-members (curie-2-uri "owl:members" prefix-2-base)
+        owl-disjoint-classes (curie-2-uri "owl:AllDisjointClasses" prefix-2-base)
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        members (.createProperty model owl-members)
+        disjoint-classes (.createResource model owl-disjoint-classes)
+        rdf-type (.createProperty model rdf-type)
+        bnode (.createResource model)]
+
+    (.add model bnode members arguments)
+    (.add model bnode rdf-type disjoint-classes)
+    bnode))
+
+
 
 (defn translate-class
   [object-map prefix-2-base model]
@@ -453,7 +473,9 @@
     (case t
       "owl:Restriction" (translate-restriction object-map prefix-2-base model)
       "owl:Class" (translate-class object-map prefix-2-base model)
-      "rdfs:Datatype" (translate-datatype object-map prefix-2-base model))))
+      "rdfs:Datatype" (translate-datatype object-map prefix-2-base model)
+      "owl:AllDisjointClasses" (translate-all-disjoint-classes object-map prefix-2-base model)
+      )))
 
 (defn translate-untyped-map
   [object-map prefix-2-base model]
@@ -505,6 +527,7 @@
 
 (defn thick-2-rdf-model
   [thick-triple prefixes]
+  (println thick-triple)
   (let [;{:keys [assertion retraction graph s p o datatype annotation]} thick-triple 
         s (:subject thick-triple)
         p (:predicate thick-triple)
@@ -515,9 +538,11 @@
         subject (translate s prefix-2-base model)
         predicate (.createProperty model (curie-2-uri p prefix-2-base))]
     (cond
-     (= datatype "_JSON") (.add model subject predicate (translate (cs/parse-string o true) prefix-2-base model))
-     (= datatype "_IRI") (.add model subject predicate (.createResource model (curie-2-uri o prefix-2-base)))
-     :else (.add model subject predicate (translate-literal o datatype prefix-2-base model)))
+      (= p "<unknown>") (println (str "ERROR Unknown Predicate: " thick-triple));TODO : handle wiring specific things
+      (= p "owl:AllDisjointClasses") (translate (cs/parse-string o true) prefix-2-base model)
+      (= datatype "_JSON") (.add model subject predicate (translate (cs/parse-string o true) prefix-2-base model))
+      (= datatype "_IRI") (.add model subject predicate (.createResource model (curie-2-uri o prefix-2-base)))
+      :else (.add model subject predicate (translate-literal o datatype prefix-2-base model)))
     model))
 
 (defn stanza-2-rdf-model
@@ -539,16 +564,17 @@
   [& args]
   (let [db (load-db (first args))
         prefix (jdbc/query db [(str "SELECT * FROM prefix")]) 
-        ;data (jdbc/query db [(str "SELECT * FROM statement LIMIT 25")])]
-        data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0302905'")])
+        ;data (jdbc/query db [(str "SELECT * FROM statement LIMIT 25")])
+        data (jdbc/query db [(str "SELECT * FROM statement")])
+        ;data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0302905'")])
         model (stanza-2-rdf-model data prefix)
         ;data2 (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0002946'")])
-        data2 (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:IAO_0000032'")])
-        model2 (stanza-2-rdf-model data2 prefix)
+        ;data2 (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:IAO_0000032'")])
+        ;model2 (stanza-2-rdf-model data2 prefix)
         
         out (io/output-stream "ddd")]
     (.write model System/out "TTL")
-    (.write model2 System/out "TTL")
+    ;(.write model2 System/out "TTL")
     ;(RDFDataMgr/write out model (Lang/TTL))
     ;(RDFDataMgr/write out model2 (Lang/TTL))
     ;(RDFDataMgr/write out model (RDFFormat/TURTLE_BLOCKS))
