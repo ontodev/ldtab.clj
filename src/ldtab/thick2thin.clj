@@ -472,6 +472,17 @@
     (.add model bnode rdf-type disjoint-classes)
     bnode))
 
+(defn translate-inverse-of
+  [object-map prefix-2-base model]
+  (let [get-object (curry-predicate-map object-map)
+        argument (translate (get-object :owl:inverseOf) prefix-2-base model)
+
+        owl-inverse-of (curie-2-uri "owl:inverseOf" prefix-2-base)
+        inverse-of (.createProperty model owl-inverse-of)
+
+        bnode (.createResource model)]
+    (.add model bnode inverse-of argument)
+    bnode)) 
 
 
 (defn translate-class
@@ -485,6 +496,7 @@
 (defn translate-datatype
   [object-map prefix-2-base model]
   "") 
+
 
 (defn translate-typed-map
   [object-map prefix-2-base model]
@@ -503,6 +515,7 @@
   (cond
     (contains? object-map :rdf:first) (translate-list object-map prefix-2-base model)
     (contains? object-map :owl:intersectionOf) (translate-intersection object-map prefix-2-base model)
+    (contains? object-map :owl:inverseOf) (translate-inverse-of object-map prefix-2-base model)
     :else (println "Untyped ERROR")))
 
 (defn translate-object-map
