@@ -576,6 +576,46 @@
     (= datatype "_IRI") (.createResource model (curie-2-uri entity prefix-2-base))
     :else (translate-literal entity datatype prefix-2-base model)))
 
+;TODO reification
+(defn translate-annotation
+  [annotation subject predicate object prefix-2-base model]
+  (when annotation
+    (let [predicate-map (cs/parse-string annotation true)
+          ;get-object (curry-predicate-map predicate-map) 
+
+          rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+          owl-annotation (curie-2-uri "owl:Annotation" prefix-2-base)
+          owl-annotated-source (curie-2-uri "owl:annotatedSource" prefix-2-base)
+          owl-annotated-property (curie-2-uri "owl:annotatedProperty" prefix-2-base)
+          owl-annotated-target (curie-2-uri "owl:annotatedTarget" prefix-2-base)
+
+          owl-annotation (.createResource model owl-annotation)
+          owl-annotated-source (.createProperty model owl-annotated-source)
+          owl-annotated-property (.createProperty model owl-annotated-property)
+          owl-annotated-target (.createProperty model owl-annotated-target)
+          rdf-type (.createProperty model rdf-type)
+
+          bnode (.createResource model)
+          
+          ks (keys predicate-map)
+          ;TODO improve this
+          vs (map (fn [x] (map #(.add model
+                                      bnode
+                                      (.createProperty model (curie-2-uri (name x) prefix-2-base))
+                                 (translate-object (:object %)
+                                                  (:datatype %)
+                                                  prefix-2-base
+                                                  model))
+                               (get predicate-map x)))
+                  ks)]
+      (.add model bnode rdf-type owl-annotation)
+      (.add model bnode owl-annotated-source subject)
+      (.add model bnode owl-annotated-property (.asResource predicate)) ;need a resource here 
+      (.add model bnode owl-annotated-target object))))
+      ;(println predicate-map))))
+      ;(println ks)
+      ;(println vs))))
+
 (defn thick-2-rdf-model
   [thick-triple prefixes]
   ;(println thick-triple)
@@ -589,6 +629,8 @@
         p (:predicate thick-triple)
         a (:annotation thick-triple)
         datatype (:datatype thick-triple)]
+    (translate-annotation a subject predicate object prefix-2-base model)
+
     (cond
       (= p "<unknown>") (println (str "ERROR Unknown Predicate: " thick-triple));TODO : handle wiring specific things
       (= p "owl:AllDisjointClasses") model;do nothing 
