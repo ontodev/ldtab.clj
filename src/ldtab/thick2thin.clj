@@ -8,10 +8,9 @@
   (:import [org.apache.jena.graph NodeFactory Triple]
            [org.apache.jena.rdf.model Model ModelFactory Resource]
            [org.apache.jena.riot RDFDataMgr RDFFormat Lang]
+           [org.apache.jena.riot.system StreamRDFWriter StreamRDFOps]
            [org.apache.jena.graph NodeFactory])
   (:gen-class))
-
-;TODO: given a thick triple -> return the corresponding Jena model 
 
 (defn curry-predicate-map
   [predicateMap]
@@ -335,7 +334,7 @@
     (translate-exact-qualified-cardinality object-map prefix-2-base model)
     (contains? object-map :owl:hasSelf) (translate-has-self object-map prefix-2-base model)
     (contains? object-map :owl:hasValue) (translate-has-value object-map prefix-2-base model)
-    ;onDataRange (qualifiedCardinliaties)
+    ;TODO onDataRange (qualifiedCardinliaties)
 
     ))
 
@@ -524,12 +523,10 @@
 
 (defn translate-object-map
   [object-map prefix-2-base model]
-  ;TODO this needs to check :datatype 
   (if (contains? object-map :rdf:type)
     (translate-typed-map object-map prefix-2-base model)
     (translate-untyped-map object-map prefix-2-base model))) 
 
-;this takes thick triple input 0
 (defn translate
   [object prefix-2-base model] 
   (if (map? object)
@@ -563,25 +560,42 @@
     (.createLiteral model literal (subs datatype-language-tag 1))
     (.createTypedLiteral model literal (curie-2-uri datatype-language-tag prefix-2-base))))
 
+(defn translate-subject
+  [entity prefix-2-base model]
+  (let [success (try 
+                  (cs/parse-string entity true)
+                  (catch Exception e nil))]
+    (if success
+      (translate success prefix-2-base model)
+      (translate entity prefix-2-base model))))
+
+(defn translate-object 
+  [entity datatype prefix-2-base model]
+  (cond
+    (= datatype "_JSON") (translate (cs/parse-string entity true) prefix-2-base model)
+    (= datatype "_IRI") (.createResource model (curie-2-uri entity prefix-2-base))
+    :else (translate-literal entity datatype prefix-2-base model)))
+
 (defn thick-2-rdf-model
   [thick-triple prefixes]
-  (println thick-triple)
+  ;(println thick-triple)
   (let [;{:keys [assertion retraction graph s p o datatype annotation]} thick-triple 
-        s (:subject thick-triple)
-        p (:predicate thick-triple)
-        o (:object thick-triple)
-        datatype (:datatype thick-triple)
         model (set-prefix-map (ModelFactory/createDefaultModel) prefixes)
         prefix-2-base (get-prefix-map prefixes)
-        subject (translate s prefix-2-base model)
-        predicate (.createProperty model (curie-2-uri p prefix-2-base))]
+
+        subject (translate-subject (:subject thick-triple) prefix-2-base model)
+        predicate (.createProperty model (curie-2-uri (:predicate thick-triple) prefix-2-base))
+        object (translate-object (:object thick-triple) (:datatype thick-triple) prefix-2-base model)
+        p (:predicate thick-triple)
+        a (:annotation thick-triple)
+        datatype (:datatype thick-triple)]
     (cond
       (= p "<unknown>") (println (str "ERROR Unknown Predicate: " thick-triple));TODO : handle wiring specific things
-      (= p "owl:AllDisjointClasses") (translate (cs/parse-string o true) prefix-2-base model)
-      (= p "owl:AllDifferent") (translate (cs/parse-string o true) prefix-2-base model)
-      (= datatype "_JSON") (.add model subject predicate (translate (cs/parse-string o true) prefix-2-base model))
-      (= datatype "_IRI") (.add model subject predicate (.createResource model (curie-2-uri o prefix-2-base)))
-      :else (.add model subject predicate (translate-literal o datatype prefix-2-base model)))
+      (= p "owl:AllDisjointClasses") model;do nothing 
+      (= p "owl:AllDifferent") model;do nothing
+      (= datatype "_JSON") (.add model subject predicate object)
+      (= datatype "_IRI") (.add model subject predicate object)
+      :else (.add model subject predicate object))
     model))
 
 (defn stanza-2-rdf-model
@@ -604,17 +618,34 @@
   (let [db (load-db (first args))
         prefix (jdbc/query db [(str "SELECT * FROM prefix")]) 
         ;data (jdbc/query db [(str "SELECT * FROM statement LIMIT 25")])
-        ;data (jdbc/query db [(str "SELECT * FROM statement")])
+        data (jdbc/query db [(str "SELECT * FROM statement")])
         ;data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0302905'")])
-        data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0000797'")])
+        ;data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0000797'")])
  
         model (stanza-2-rdf-model data prefix)
         ;data2 (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0002946'")])
         ;data2 (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:IAO_0000032'")])
         ;model2 (stanza-2-rdf-model data2 prefix)
         
-        out (io/output-stream "ddd")]
-    (.write model System/out "TTL")
+        out (io/output-stream "ddd")
+        graph1 (.getGraph model)
+        ;graph2 (.getGraph model2)
+        stream (StreamRDFWriter/getWriterStream out RDFFormat/TURTLE_BLOCKS)
+        prefixes (.lock model)
+
+        
+        ]
+    (.start stream)
+    (StreamRDFOps/sendPrefixesToStream prefixes stream)
+    (StreamRDFOps/sendTriplesToStream graph1 stream)
+    ;(StreamRDFOps/sendTriplesToStream graph2 stream)
+    (.finish stream)
+
+
+    ;(StreamRDFWriter/write out graph1 RDFFormat/TURTLE_BLOCKS)
+    ;(StreamRDFWriter/write out graph2 RDFFormat/TURTLE_BLOCKS)
+
+    ;(.write model System/out "TTL")
     ;(.write model2 System/out "TTL")
     ;(RDFDataMgr/write out model (Lang/TTL))
     ;(RDFDataMgr/write out model2 (Lang/TTL))
