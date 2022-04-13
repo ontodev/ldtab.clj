@@ -576,37 +576,66 @@
     (= datatype "_IRI") (.createResource model (curie-2-uri entity prefix-2-base))
     :else (translate-literal entity datatype prefix-2-base model)))
 
-;TODO reification
+
+(defn add-annotation
+  [bnode subject predicate object prefix-2-base model]
+  (let [rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+        owl-annotation (curie-2-uri "owl:Annotation" prefix-2-base)
+        owl-annotated-source (curie-2-uri "owl:annotatedSource" prefix-2-base)
+        owl-annotated-property (curie-2-uri "owl:annotatedProperty" prefix-2-base)
+        owl-annotated-target (curie-2-uri "owl:annotatedTarget" prefix-2-base)
+
+        owl-annotation (.createResource model owl-annotation)
+        owl-annotated-source (.createProperty model owl-annotated-source)
+        owl-annotated-property (.createProperty model owl-annotated-property)
+        owl-annotated-target (.createProperty model owl-annotated-target)
+        rdf-type (.createProperty model rdf-type)]
+      (.add model bnode rdf-type owl-annotation)
+      (.add model bnode owl-annotated-source subject)
+      (.add model bnode owl-annotated-property (.asResource predicate)) ;need a resource here 
+      (.add model bnode owl-annotated-target object)))
+
+
+(defn add-reification
+  [bnode subject predicate object prefix-2-base model]
+  (let [rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+        rdf-statement (curie-2-uri "rdf:Statement" prefix-2-base)
+        rdf-subject (curie-2-uri "rdf:subject" prefix-2-base)
+        rdf-predicate (curie-2-uri "rdf:predicate" prefix-2-base)
+        rdf-object (curie-2-uri "rdf:object" prefix-2-base)
+
+        rdf-statement (.createResource model rdf-statement)
+        rdf-subject (.createProperty model rdf-subject)
+        rdf-predicate (.createProperty model rdf-predicate)
+        rdf-object (.createProperty model rdf-object)
+        rdf-type (.createProperty model rdf-type)]
+      (.add model bnode rdf-type rdf-statement)
+      (.add model bnode rdf-subject subject)
+      (.add model bnode rdf-predicate (.asResource predicate)) ;need a resource here 
+      (.add model bnode rdf-object object)))
+
 (defn translate-annotation
   [annotation subject predicate object prefix-2-base model]
   (when annotation
-    (let [predicate-map (cs/parse-string annotation true)
+    (let [predicate-map (cs/parse-string annotation true) 
+          bnode (.createResource model)
+          ks (keys predicate-map)
+          ;a predicate map always encodes the 'same' annotation 
+          example-key (first ks)
+          meta-key (:meta (first (get predicate-map example-key)))] 
 
-          rdf-type (curie-2-uri "rdf:type" prefix-2-base)
-          owl-annotation (curie-2-uri "owl:Annotation" prefix-2-base)
-          owl-annotated-source (curie-2-uri "owl:annotatedSource" prefix-2-base)
-          owl-annotated-property (curie-2-uri "owl:annotatedProperty" prefix-2-base)
-          owl-annotated-target (curie-2-uri "owl:annotatedTarget" prefix-2-base)
-
-          owl-annotation (.createResource model owl-annotation)
-          owl-annotated-source (.createProperty model owl-annotated-source)
-          owl-annotated-property (.createProperty model owl-annotated-property)
-          owl-annotated-target (.createProperty model owl-annotated-target)
-          rdf-type (.createProperty model rdf-type)
-
-          bnode (.createResource model)] 
-
-      (doseq [k (keys predicate-map)] 
+      (doseq [k ks] 
         (doseq [x (get predicate-map k)]
           (.add model
                 bnode
                 (.createProperty model (curie-2-uri (name k) prefix-2-base))
                 (translate-object (:object x) (:datatype x) prefix-2-base model))))
+      (cond
+        (= meta-key "owl:Annotation")
+        (add-annotation bnode subject predicate object prefix-2-base model)
+        (= meta-key "rdf:Reification")
+        (add-reification bnode subject predicate object prefix-2-base model)))))
 
-      (.add model bnode rdf-type owl-annotation)
-      (.add model bnode owl-annotated-source subject)
-      (.add model bnode owl-annotated-property (.asResource predicate)) ;need a resource here 
-      (.add model bnode owl-annotated-target object))))
 
 (defn thick-2-rdf-model
   [thick-triple prefixes]
