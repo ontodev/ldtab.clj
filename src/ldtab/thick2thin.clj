@@ -581,7 +581,6 @@
   [annotation subject predicate object prefix-2-base model]
   (when annotation
     (let [predicate-map (cs/parse-string annotation true)
-          ;get-object (curry-predicate-map predicate-map) 
 
           rdf-type (curie-2-uri "rdf:type" prefix-2-base)
           owl-annotation (curie-2-uri "owl:Annotation" prefix-2-base)
@@ -595,26 +594,19 @@
           owl-annotated-target (.createProperty model owl-annotated-target)
           rdf-type (.createProperty model rdf-type)
 
-          bnode (.createResource model)
-          
-          ks (keys predicate-map)
-          ;TODO improve this
-          vs (map (fn [x] (map #(.add model
-                                      bnode
-                                      (.createProperty model (curie-2-uri (name x) prefix-2-base))
-                                 (translate-object (:object %)
-                                                  (:datatype %)
-                                                  prefix-2-base
-                                                  model))
-                               (get predicate-map x)))
-                  ks)]
+          bnode (.createResource model)] 
+
+      (doseq [k (keys predicate-map)] 
+        (doseq [x (get predicate-map k)]
+          (.add model
+                bnode
+                (.createProperty model (curie-2-uri (name k) prefix-2-base))
+                (translate-object (:object x) (:datatype x) prefix-2-base model))))
+
       (.add model bnode rdf-type owl-annotation)
       (.add model bnode owl-annotated-source subject)
       (.add model bnode owl-annotated-property (.asResource predicate)) ;need a resource here 
       (.add model bnode owl-annotated-target object))))
-      ;(println predicate-map))))
-      ;(println ks)
-      ;(println vs))))
 
 (defn thick-2-rdf-model
   [thick-triple prefixes]
