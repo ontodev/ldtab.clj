@@ -580,7 +580,8 @@
 (defn add-annotation
   [bnode subject predicate object prefix-2-base model]
   (let [rdf-type (curie-2-uri "rdf:type" prefix-2-base)
-        owl-annotation (curie-2-uri "owl:Annotation" prefix-2-base)
+        ;owl-annotation (curie-2-uri "owl:Annotation" prefix-2-base)
+        owl-annotation (curie-2-uri "owl:Axiom" prefix-2-base)
         owl-annotated-source (curie-2-uri "owl:annotatedSource" prefix-2-base)
         owl-annotated-property (curie-2-uri "owl:annotatedProperty" prefix-2-base)
         owl-annotated-target (curie-2-uri "owl:annotatedTarget" prefix-2-base)
