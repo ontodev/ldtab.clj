@@ -357,7 +357,7 @@
 
     bnode))
 
-(defn translate-intersection
+(defn translate-class-intersection
   [object-map prefix-2-base model]
   (let [get-object (curry-predicate-map object-map)
         arguments (translate (get-object :owl:intersectionOf) prefix-2-base model) 
@@ -377,7 +377,7 @@
 
     bnode))
 
-(defn translate-union
+(defn translate-class-union
   [object-map prefix-2-base model] 
   (let [get-object (curry-predicate-map object-map)
         arguments (translate (get-object :owl:unionOf) prefix-2-base model) 
@@ -491,13 +491,18 @@
 (defn translate-class
   [object-map prefix-2-base model]
   (cond
-    (contains? object-map :owl:intersectionOf) (translate-intersection object-map prefix-2-base model)
-    (contains? object-map :owl:unionOf) (translate-union object-map prefix-2-base model)
+    (contains? object-map :owl:intersectionOf) (translate-class-intersection object-map prefix-2-base model)
+    (contains? object-map :owl:unionOf) (translate-class-union object-map prefix-2-base model)
     (contains? object-map :owl:oneOf) (translate-class-one-of object-map prefix-2-base model)
     (contains? object-map :owl:complementOf) (translate-class-complement object-map prefix-2-base model)))
 
 (defn translate-datatype
   [object-map prefix-2-base model]
+  ;intersection
+  ;union
+  ;oneOf
+
+  ;datatypecomplement
   "") 
 
 
@@ -517,7 +522,7 @@
   [object-map prefix-2-base model]
   (cond
     (contains? object-map :rdf:first) (translate-list object-map prefix-2-base model)
-    (contains? object-map :owl:intersectionOf) (translate-intersection object-map prefix-2-base model)
+    ;(contains? object-map :owl:intersectionOf) (translate-intersection object-map prefix-2-base model)
     (contains? object-map :owl:inverseOf) (translate-inverse-of object-map prefix-2-base model)
     :else (println "Untyped ERROR")))
 
@@ -704,7 +709,6 @@
     (StreamRDFOps/sendTriplesToStream graph1 stream)
     ;(StreamRDFOps/sendTriplesToStream graph2 stream)
     (.finish stream)
-
 
     ;(StreamRDFWriter/write out graph1 RDFFormat/TURTLE_BLOCKS)
     ;(StreamRDFWriter/write out graph2 RDFFormat/TURTLE_BLOCKS)
