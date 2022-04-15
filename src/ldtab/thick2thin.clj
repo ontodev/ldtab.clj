@@ -496,15 +496,93 @@
     (contains? object-map :owl:oneOf) (translate-class-one-of object-map prefix-2-base model)
     (contains? object-map :owl:complementOf) (translate-class-complement object-map prefix-2-base model)))
 
+(defn translate-datatype-intersection
+  [object-map prefix-2-base model]
+  (let [get-object (curry-predicate-map object-map)
+        arguments (translate (get-object :owl:intersectionOf) prefix-2-base model) 
+
+        rdfs-datatype (curie-2-uri "rdfs:Datatype" prefix-2-base)
+        owl-intersection (curie-2-uri "owl:intersectionOf" prefix-2-base)
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        owl-intersection (.createProperty model owl-intersection)
+        rdfs-datatype (.createResource model rdfs-datatype)
+        rdf-type (.createProperty model rdf-type)
+
+        bnode (.createResource model)]
+
+    (.add model bnode owl-intersection arguments)
+    (.add model bnode rdf-type rdfs-datatype)
+
+    bnode))
+
+(defn translate-datatype-union
+  [object-map prefix-2-base model] 
+  (let [get-object (curry-predicate-map object-map)
+        arguments (translate (get-object :owl:unionOf) prefix-2-base model) 
+
+        rdfs-datatype (curie-2-uri "rdfs:Datatype" prefix-2-base)
+        owl-union (curie-2-uri "owl:unionOf" prefix-2-base)
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        owl-union (.createProperty model owl-union)
+        rdfs-datatype (.createResource model rdfs-datatype)
+        rdf-type (.createProperty model rdf-type)
+
+        bnode (.createResource model)]
+
+    (.add model bnode owl-union arguments)
+    (.add model bnode rdf-type rdfs-datatype)
+
+    bnode)) 
+
+(defn translate-datatype-one-of
+  [object-map prefix-2-base model] 
+  (let [get-object (curry-predicate-map object-map)
+        arguments (translate (get-object :owl:oneOf) prefix-2-base model) 
+
+        rdfs-datatype (curie-2-uri "rdfs:Datatype" prefix-2-base)
+        owl-one-of (curie-2-uri "owl:oneOf" prefix-2-base)
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        owl-one-of (.createProperty model owl-one-of)
+        rdfs-datatype (.createResource model rdfs-datatype)
+        rdf-type (.createProperty model rdf-type)
+
+        bnode (.createResource model)]
+
+    (.add model bnode owl-one-of arguments)
+    (.add model bnode rdf-type rdfs-datatype)
+
+    bnode)) 
+
+(defn translate-datatype-complement
+  [object-map prefix-2-base model] 
+  (let [get-object (curry-predicate-map object-map)
+        argument (translate (get-object :owl:complementOf) prefix-2-base model) 
+
+        rdfs-datatype (curie-2-uri "rdfs:Datatype" prefix-2-base) 
+        owl-complement-of (curie-2-uri "owl:datatypeComplementOf" prefix-2-base)
+        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+
+        owl-complement-of (.createProperty model owl-complement-of)
+        rdfs-datatype (.createResource model rdfs-datatype)
+        rdf-type (.createProperty model rdf-type)
+
+        bnode (.createResource model)]
+
+    (.add model bnode owl-complement-of argument)
+    (.add model bnode rdf-type rdfs-datatype)
+
+    bnode)) 
+
 (defn translate-datatype
   [object-map prefix-2-base model]
-  ;intersection
-  ;union
-  ;oneOf
-
-  ;datatypecomplement
-  "") 
-
+  (cond 
+    (contains? object-map :owl:intersectionOf) (translate-datatype-intersection object-map prefix-2-base model)
+    (contains? object-map :owl:unionOf) (translate-datatype-union object-map prefix-2-base model) 
+    (contains? object-map :owl:oneOf) (translate-datatype-one-of object-map prefix-2-base model)
+    (contains? object-map :owl:datatypeComplementOf) (translate-datatype-complement object-map prefix-2-base model))) 
 
 (defn translate-typed-map
   [object-map prefix-2-base model]
