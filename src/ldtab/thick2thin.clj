@@ -721,6 +721,12 @@
         (add-reification bnode subject predicate object prefix-2-base model)))))
 
 
+;TODO:
+;owl:NegativePropertyAssertion
+;owl:hasKey
+;owl:AllDisjointProperties
+;owl:propertyChainAxiom ?
+
 (defn thick-2-rdf-model
   [thick-triple prefixes]
   ;(println thick-triple)
@@ -751,6 +757,18 @@
         model (reduce #(.add %1 %2) models)]
     model))
 
+(defn stanza-2-rdf-model-stream
+  [thick-triples prefixes output]
+  (let [out-stream (io/output-stream output)
+        example-model (thick-2-rdf-model (first thick-triples) prefixes)
+        prefix-map (.lock example-model)
+        writer-stream (StreamRDFWriter/getWriterStream out-stream RDFFormat/TURTLE_BLOCKS)]
+    (.start writer-stream)
+    (StreamRDFOps/sendPrefixesToStream prefix-map writer-stream)
+    (doseq [triple thick-triples]
+      (StreamRDFOps/sendTriplesToStream (.getGraph (thick-2-rdf-model triple prefixes)) writer-stream))
+    (.finish writer-stream))) 
+    ;(StreamRDFWriter/write out graph1 RDFFormat/TURTLE_BLOCKS)
 
 (defn load-db
   [path]
@@ -768,37 +786,13 @@
         data (jdbc/query db [(str "SELECT * FROM statement")])
         ;data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0302905'")])
         ;data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0000797'")])
+        ;data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0002946'")])
+        ;data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:IAO_0000032'")])
  
-        model (stanza-2-rdf-model data prefix)
-        ;data2 (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0002946'")])
-        ;data2 (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:IAO_0000032'")])
-        ;model2 (stanza-2-rdf-model data2 prefix)
-        
-        out (io/output-stream "ddd")
-        graph1 (.getGraph model)
-        ;graph2 (.getGraph model2)
-        stream (StreamRDFWriter/getWriterStream out RDFFormat/TURTLE_BLOCKS)
-        prefixes (.lock model)
-
-        
+        ;model (stanza-2-rdf-model data prefix) 
         ]
-    (.start stream)
-    (StreamRDFOps/sendPrefixesToStream prefixes stream)
-    (StreamRDFOps/sendTriplesToStream graph1 stream)
-    ;(StreamRDFOps/sendTriplesToStream graph2 stream)
-    (.finish stream)
-
-    ;(StreamRDFWriter/write out graph1 RDFFormat/TURTLE_BLOCKS)
-    ;(StreamRDFWriter/write out graph2 RDFFormat/TURTLE_BLOCKS)
+    (stanza-2-rdf-model-stream data prefix "test-output") 
 
     ;(.write model System/out "TTL")
-    ;(.write model2 System/out "TTL")
     ;(RDFDataMgr/write out model (Lang/TTL))
-    ;(RDFDataMgr/write out model2 (Lang/TTL))
-    ;(RDFDataMgr/write out model (RDFFormat/TURTLE_BLOCKS))
-    ;(RDFDataMgr/write out model2 (RDFFormat/TURTLE_BLOCKS))
     ))
-      ;(doseq [row data]
-      ;  (println row)
-      ;  (.write (thick-2-rdf-model row prefix) System/out))))
-          ;(println row)))))
