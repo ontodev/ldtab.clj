@@ -584,6 +584,19 @@
     (contains? object-map :owl:oneOf) (translate-datatype-one-of object-map prefix-2-base model)
     (contains? object-map :owl:datatypeComplementOf) (translate-datatype-complement object-map prefix-2-base model))) 
 
+(declare translate-object)
+;TODO: test this
+(defn translate-rdf
+  [object-map prefix-2-base model]
+  (let [bnode (.createResource model)]
+    (doseq [k (keys object-map)] 
+      (doseq [x (get object-map k)]
+        (.add model
+              bnode
+              (.createProperty model (curie-2-uri (name k) prefix-2-base))
+              (translate-object (:object x) (:datatype x) prefix-2-base model)))
+      bnode)))
+
 (defn translate-typed-map
   [object-map prefix-2-base model]
   (let [get-object (curry-predicate-map object-map)
@@ -594,7 +607,7 @@
       "rdfs:Datatype" (translate-datatype object-map prefix-2-base model)
       "owl:AllDisjointClasses" (translate-all-disjoint-classes object-map prefix-2-base model)
       "owl:AllDifferent" (translate-all-different object-map prefix-2-base model)
-      )))
+      :else (translate-rdf object-map prefix-2-base model))))
 
 (defn translate-untyped-map
   [object-map prefix-2-base model]
@@ -602,8 +615,9 @@
     (contains? object-map :rdf:first) (translate-list object-map prefix-2-base model)
     ;(contains? object-map :owl:intersectionOf) (translate-intersection object-map prefix-2-base model)
     (contains? object-map :owl:inverseOf) (translate-inverse-of object-map prefix-2-base model)
-    :else (println "Untyped ERROR")))
+    :else (translate-rdf object-map prefix-2-base model)))
 
+;TODO: separate OWL and RDF translation here?
 (defn translate-object-map
   [object-map prefix-2-base model]
   (if (contains? object-map :rdf:type)
@@ -743,7 +757,7 @@
     (translate-annotation a subject predicate object prefix-2-base model)
 
     (cond
-      (= p "<unknown>") (println (str "ERROR Unknown Predicate: " thick-triple));TODO : handle wiring specific things
+      (= p "<unknown>") model;do nothing (blank node statements have already been added with 'translate-object')
       (= p "owl:AllDisjointClasses") model;do nothing 
       (= p "owl:AllDifferent") model;do nothing
       (= datatype "_JSON") (.add model subject predicate object)
@@ -782,12 +796,7 @@
   [& args]
   (let [db (load-db (first args))
         prefix (jdbc/query db [(str "SELECT * FROM prefix")]) 
-        ;data (jdbc/query db [(str "SELECT * FROM statement LIMIT 25")])
         data (jdbc/query db [(str "SELECT * FROM statement")])
-        ;data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0302905'")])
-        ;data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0000797'")])
-        ;data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:OBI_0002946'")])
-        ;data (jdbc/query db [(str "SELECT * FROM statement WHERE subject='obo:IAO_0000032'")])
  
         ;model (stanza-2-rdf-model data prefix) 
         ]
