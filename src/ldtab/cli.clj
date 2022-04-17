@@ -37,6 +37,7 @@
     :parse-fn #(identity %)] 
    ["-f" "--format FORMAT" "Output format"
     :parse-fn #(identity %)]
+   ["-s" "--streamed"];TODO 
    ])
 
 (defn usage [options-summary]
@@ -220,10 +221,22 @@
   (let [{:keys [options arguments errors summary]} (parse-opts command export-options)
         db (second arguments) 
         output (nth arguments 2)
-        table (:table options)];TODO: add options for output format
-    (if table 
+        table (:table options)
+        output-format (:format options)
+        streamed (:streamed options)];TODO: add options for output format
+    (cond
+      ;TODO guess output format based on file extension
+      (and table (= (str/lower-case output-format) "tsv"))
       (export-db/export-tsv db table output)
-      (export-db/export-tsv db output))))
+
+      (and table (= (str/lower-case output-format) "turtle"))
+      (export-db/export-turtle db table output)
+      
+      (= (str/lower-case output-format) "tsv")
+      (export-db/export-tsv db output)
+
+      (= (str/lower-case output-format) "turtle")
+      (export-db/export-turtle db output))))
 
 ;TODO handle options for subcommand
 ;TODO validate tsv file

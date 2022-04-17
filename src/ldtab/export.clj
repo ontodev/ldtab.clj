@@ -1,9 +1,11 @@
 (ns ldtab.export
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.java.io :as io]
+            [ldtab.thick2thin :as thick-2-thin] 
             [clojure.string :as str])
   (:import [java.io FileInputStream] 
-           [org.apache.jena.riot RDFDataMgr Lang])
+           [org.apache.jena.riot RDFDataMgr Lang] 
+           )
   (:gen-class)) 
 
 ;TODO: export to a file or STDOUT
@@ -44,3 +46,16 @@
       (.write w (str (get-tsv-header data) "\n"))
       (doseq [row data]
         (.write w (str (triple-2-tsv row) "\n")))))))
+
+(defn export-turtle
+ ([db-path output]
+  (export-turtle db-path "statement" output))
+ ([db-path table output]
+  (let [db (load-db db-path)
+       data (jdbc/query db [(str "SELECT * FROM " table)])
+       prefix (jdbc/query db [(str "SELECT * FROM prefix")]) 
+       output-path (io/as-relative-path output)] 
+    (thick-2-thin/stanza-2-rdf-model-stream data prefix output-path))))
+
+
+
