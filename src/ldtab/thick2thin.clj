@@ -1,7 +1,5 @@
 (ns ldtab.thick2thin
-  (:require [clojure.set :as set]
-            [clojure.string :as str]
-            [ldtab.annotation-handling :as ann]
+  (:require [clojure.string :as str]
             [clojure.java.jdbc :as jdbc]
             [clojure.java.io :as io]
             [cheshire.core :as cs])
@@ -34,7 +32,6 @@
                (str/ends-with? curie ">"))
         (subs curie 1 (- (count curie) 1));remove enclosing < >
         curie))))
-      ;curie)))
 
 (defn translate-some
   [object-map prefix-2-base model]
@@ -53,7 +50,6 @@
 
         restriction (.createResource model owl-restriction)
 
-        ;bnode (NodeFactory/createBlankNode)]
         bnode (.createResource model)]
 
     (.add model bnode some-values filler)
@@ -104,7 +100,6 @@
         
         restriction (.createResource model owl-restriction)
 
-        ;bnode (NodeFactory/createBlankNode)]
         bnode (.createResource model)]
 
     (.add model bnode on-property property)
@@ -134,7 +129,6 @@
         
         restriction (.createResource model owl-restriction)
 
-        ;bnode (NodeFactory/createBlankNode)]
         bnode (.createResource model)]
 
     (.add model bnode on-property property)
@@ -162,7 +156,6 @@
         
         restriction (.createResource model owl-restriction)
 
-        ;bnode (NodeFactory/createBlankNode)]
         bnode (.createResource model)]
 
     (.add model bnode on-property property)
@@ -192,7 +185,6 @@
         
         restriction (.createResource model owl-restriction)
 
-        ;bnode (NodeFactory/createBlankNode)]
         bnode (.createResource model)]
 
     (.add model bnode on-property property)
@@ -220,7 +212,6 @@
         
         restriction (.createResource model owl-restriction)
 
-        ;bnode (NodeFactory/createBlankNode)]
         bnode (.createResource model)]
 
     (.add model bnode on-property property)
@@ -250,7 +241,6 @@
         
         restriction (.createResource model owl-restriction)
 
-        ;bnode (NodeFactory/createBlankNode)]
         bnode (.createResource model)]
 
     (.add model bnode on-property property)
@@ -278,7 +268,6 @@
         
         restriction (.createResource model owl-restriction)
 
-        ;bnode (NodeFactory/createBlankNode)]
         bnode (.createResource model)]
 
     (.add model bnode on-property property)
@@ -304,7 +293,6 @@
         
         restriction (.createResource model owl-restriction)
 
-        ;bnode (NodeFactory/createBlankNode)]
         bnode (.createResource model)]
 
     (.add model bnode on-property property)
@@ -458,8 +446,8 @@
 (defn translate-all-different
   [object-map prefix-2-base model]
   (let [get-object (curry-predicate-map object-map)
-        ;arguments (translate (get-object :owl:members) prefix-2-base model)
         ;TODO check distinctMembers vs members
+        ;arguments (translate (get-object :owl:members) prefix-2-base model)
         arguments (translate (get-object :owl:distinctMembers) prefix-2-base model)
 
         owl-members (curie-2-uri "owl:members" prefix-2-base)
@@ -743,7 +731,6 @@
 
 (defn thick-2-rdf-model
   [thick-triple prefixes]
-  ;(println thick-triple)
   (let [;{:keys [assertion retraction graph s p o datatype annotation]} thick-triple 
         model (set-prefix-map (ModelFactory/createDefaultModel) prefixes)
         prefix-2-base (get-prefix-map prefixes)
@@ -782,7 +769,6 @@
     (doseq [triple thick-triples]
       (StreamRDFOps/sendTriplesToStream (.getGraph (thick-2-rdf-model triple prefixes)) writer-stream))
     (.finish writer-stream))) 
-    ;(StreamRDFWriter/write out graph1 RDFFormat/TURTLE_BLOCKS)
 
 (defn load-db
   [path]
@@ -796,12 +782,5 @@
   [& args]
   (let [db (load-db (first args))
         prefix (jdbc/query db [(str "SELECT * FROM prefix")]) 
-        data (jdbc/query db [(str "SELECT * FROM statement")])
- 
-        ;model (stanza-2-rdf-model data prefix) 
-        ]
-    (stanza-2-rdf-model-stream data prefix "test-output") 
-
-    ;(.write model System/out "TTL")
-    ;(RDFDataMgr/write out model (Lang/TTL))
-    ))
+        data (jdbc/query db [(str "SELECT * FROM statement")])]
+    (stanza-2-rdf-model-stream data prefix "test-output")))
