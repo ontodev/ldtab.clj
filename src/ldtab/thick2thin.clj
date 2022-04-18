@@ -33,22 +33,34 @@
         (subs curie 1 (- (count curie) 1));remove enclosing < >
         curie))))
 
+(defn create-jena-property
+  [property model prefix-2-base]
+  (let [uri (curie-2-uri property prefix-2-base)]
+    (.createProperty model uri)))
+
+(defn create-jena-resource
+  [resource model prefix-2-base]
+  (let [uri (curie-2-uri resource prefix-2-base)]
+    (.createResource model uri))) 
+
+(defn create-jena-typed-literal
+  [literal datatype model prefix-2-base]
+   (let [uri (curie-2-uri datatype prefix-2-base)]
+     (.createTypedLiteral model literal uri)))
+
 (defn translate-some
   [object-map prefix-2-base model]
   (let [get-object (curry-predicate-map object-map)
         property (translate (get-object :owl:onProperty) prefix-2-base model)
         filler (translate (get-object :owl:someValuesFrom) prefix-2-base model)
 
-        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
-        owl-some-values (curie-2-uri "owl:someValuesFrom" prefix-2-base)
-        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
 
-        on-property (.createProperty model owl-on-property)
-        some-values (.createProperty model owl-some-values) 
-        rdf-type (.createProperty model rdf-type)
-
-        restriction (.createResource model owl-restriction)
+        on-property (create-property "owl:onProperty") 
+        some-values (create-property "owl:someValuesFrom")
+        rdf-type (create-property "rdf:type") 
+        restriction (create-resource "owl:Restriction")
 
         bnode (.createResource model)]
 
@@ -64,19 +76,17 @@
         property (translate (get-object :owl:onProperty) prefix-2-base model)
         filler (translate (get-object :owl:allValuesFrom) prefix-2-base model)
 
-        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
-        owl-all-values (curie-2-uri "owl:allValuesFrom" prefix-2-base)
-        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
 
-        on-property (.createProperty model owl-on-property)
-        some-values (.createProperty model owl-all-values) 
-        rdf-type (.createProperty model rdf-type)
+        on-property (create-property "owl:onProperty") 
+        all-values (create-property "owl:allValuesFrom")
+        rdf-type (create-property "rdf:type") 
+        restriction (create-resource "owl:Restriction") 
 
-        restriction (.createResource model owl-restriction) 
         bnode (.createResource model)]
 
-    (.add model bnode some-values filler)
+    (.add model bnode all-values filler)
     (.add model bnode on-property property)
     (.add model bnode rdf-type restriction)
 
@@ -87,19 +97,16 @@
   (let [get-object (curry-predicate-map object-map)
         property (translate (get-object :owl:onProperty) prefix-2-base model)
         cardinality (get-object :owl:minCardinality)
-        
-        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
-        owl-min-cardinality (curie-2-uri "owl:minCardinality" prefix-2-base)
-        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
 
-        on-property (.createProperty model owl-on-property)
-        min-cardinality (.createProperty model owl-min-cardinality)
-        rdf-type (.createProperty model rdf-type)
-        cardinality (.createTypedLiteral model cardinality (curie-2-uri "xsd:nonNegativeInteger" prefix-2-base)) 
-        
-        restriction (.createResource model owl-restriction)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
+        create-typed-literal (fn [x y] (create-jena-typed-literal x y model prefix-2-base))
 
+        on-property (create-property "owl:onProperty") 
+        min-cardinality (create-property "owl:minCardinality")
+        rdf-type (create-property "rdf:type") 
+        restriction (create-resource "owl:Restriction") 
+        cardinality (create-typed-literal cardinality "xsd:nonNegativeInteger")
         bnode (.createResource model)]
 
     (.add model bnode on-property property)
@@ -108,26 +115,25 @@
 
     bnode)) 
 
+;HERE
+
 (defn translate-min-qualified-cardinality 
   [object-map prefix-2-base model]
   (let [get-object (curry-predicate-map object-map)
         property (translate (get-object :owl:onProperty) prefix-2-base model)
         filler (translate (get-object :owl:onClass) prefix-2-base model)
         cardinality (get-object :owl:minQualifiedCardinality)
-        
-        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
-        owl-on-class (curie-2-uri "owl:onClass" prefix-2-base)
-        owl-min-cardinality (curie-2-uri "owl:minQualifiedCardinality" prefix-2-base)
-        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
 
-        on-property (.createProperty model owl-on-property)
-        on-class (.createProperty model owl-on-class)
-        min-cardinality (.createProperty model owl-min-cardinality)
-        rdf-type (.createProperty model rdf-type)
-        cardinality (.createTypedLiteral model cardinality (curie-2-uri "xsd:nonNegativeInteger" prefix-2-base)) 
-        
-        restriction (.createResource model owl-restriction)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
+        create-typed-literal (fn [x y] (create-jena-typed-literal x y model prefix-2-base)) 
+
+        on-property (create-property "owl:onProperty") 
+        on-class (create-property "owl:onClass")
+        min-cardinality (create-property "owl:minQualifiedCardinality")
+        rdf-type (create-property "rdf:type") 
+        restriction (create-resource "owl:Restriction") 
+        cardinality (create-typed-literal cardinality "xsd:nonNegativeInteger") 
 
         bnode (.createResource model)]
 
@@ -143,18 +149,16 @@
   (let [get-object (curry-predicate-map object-map)
         property (translate (get-object :owl:onProperty) prefix-2-base model)
         cardinality (get-object :owl:maxCardinality)
-        
-        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
-        owl-max-cardinality (curie-2-uri "owl:maxCardinality" prefix-2-base)
-        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
 
-        on-property (.createProperty model owl-on-property)
-        max-cardinality (.createProperty model owl-max-cardinality)
-        rdf-type (.createProperty model rdf-type)
-        cardinality (.createTypedLiteral model cardinality (curie-2-uri "xsd:nonNegativeInteger" prefix-2-base)) 
-        
-        restriction (.createResource model owl-restriction)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
+        create-typed-literal (fn [x y] (create-jena-typed-literal x y model prefix-2-base))
+
+        on-property (create-property "owl:onProperty") 
+        max-cardinality (create-property "owl:maxCardinality")
+        rdf-type (create-property "rdf:type") 
+        restriction (create-resource "owl:Restriction") 
+        cardinality (create-typed-literal cardinality "xsd:nonNegativeInteger")
 
         bnode (.createResource model)]
 
@@ -170,20 +174,17 @@
         property (translate (get-object :owl:onProperty) prefix-2-base model)
         filler (translate (get-object :owl:onClass) prefix-2-base model)
         cardinality (get-object :owl:maxQualifiedCardinality)
-        
-        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
-        owl-on-class (curie-2-uri "owl:onClass" prefix-2-base)
-        owl-max-cardinality (curie-2-uri "owl:maxQualifiedCardinality" prefix-2-base)
-        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
 
-        on-property (.createProperty model owl-on-property)
-        on-class (.createProperty model owl-on-class)
-        max-cardinality (.createProperty model owl-max-cardinality)
-        rdf-type (.createProperty model rdf-type)
-        cardinality (.createTypedLiteral model cardinality (curie-2-uri "xsd:nonNegativeInteger" prefix-2-base)) 
-        
-        restriction (.createResource model owl-restriction)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
+        create-typed-literal (fn [x y] (create-jena-typed-literal x y model prefix-2-base)) 
+
+        on-property (create-property "owl:onProperty") 
+        on-class (create-property "owl:onClass")
+        max-cardinality (create-property "owl:maxQualifiedCardinality")
+        rdf-type (create-property "rdf:type") 
+        restriction (create-resource "owl:Restriction") 
+        cardinality (create-typed-literal cardinality "xsd:nonNegativeInteger") 
 
         bnode (.createResource model)]
 
@@ -199,18 +200,16 @@
   (let [get-object (curry-predicate-map object-map)
         property (translate (get-object :owl:onProperty) prefix-2-base model)
         cardinality (get-object :owl:cardinality)
-        
-        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
-        owl-cardinality (curie-2-uri "owl:cardinality" prefix-2-base)
-        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
 
-        on-property (.createProperty model owl-on-property)
-        exact-cardinality (.createProperty model owl-cardinality)
-        rdf-type (.createProperty model rdf-type)
-        cardinality (.createTypedLiteral model cardinality (curie-2-uri "xsd:nonNegativeInteger" prefix-2-base)) 
-        
-        restriction (.createResource model owl-restriction)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
+        create-typed-literal (fn [x y] (create-jena-typed-literal x y model prefix-2-base)) 
+
+        on-property (create-property "owl:onProperty") 
+        exact-cardinality (create-property "owl:cardinality")
+        rdf-type (create-property "rdf:type") 
+        restriction (create-resource "owl:Restriction") 
+        cardinality (create-typed-literal cardinality "xsd:nonNegativeInteger") 
 
         bnode (.createResource model)]
 
@@ -218,28 +217,25 @@
     (.add model bnode exact-cardinality cardinality)
     (.add model bnode rdf-type restriction)
 
-    bnode)) 
+    bnode))
 
-(defn translate-exact-qualified-cardinality 
+(defn translate-exact-qualified-cardinality
   [object-map prefix-2-base model]
   (let [get-object (curry-predicate-map object-map)
         property (translate (get-object :owl:onProperty) prefix-2-base model)
         filler (translate (get-object :owl:onClass) prefix-2-base model)
         cardinality (get-object :owl:qualifiedCardinality)
-        
-        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
-        owl-on-class (curie-2-uri "owl:onClass" prefix-2-base)
-        owl-exact-cardinality (curie-2-uri "owl:qualifiedCardinality" prefix-2-base)
-        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
 
-        on-property (.createProperty model owl-on-property)
-        on-class (.createProperty model owl-on-class)
-        exact-cardinality (.createProperty model owl-exact-cardinality)
-        rdf-type (.createProperty model rdf-type)
-        cardinality (.createTypedLiteral model cardinality (curie-2-uri "xsd:nonNegativeInteger" prefix-2-base)) 
-        
-        restriction (.createResource model owl-restriction)
+        create-property (fn [x] (create-jena-property x model prefix-2-base))
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
+        create-typed-literal (fn [x y] (create-jena-typed-literal x y model prefix-2-base))
+
+        on-property (create-property "owl:onProperty")
+        on-class (create-property "owl:onClass")
+        exact-cardinality (create-property "owl:qualifiedCardinality")
+        rdf-type (create-property "rdf:type")
+        restriction (create-resource "owl:Restriction")
+        cardinality (create-typed-literal cardinality "xsd:nonNegativeInteger")
 
         bnode (.createResource model)]
 
@@ -248,25 +244,23 @@
     (.add model bnode rdf-type restriction)
     (.add model bnode on-class filler)
 
-    bnode)) 
+    bnode))
 
 
 (defn translate-has-self 
   [object-map prefix-2-base model]
   (let [get-object (curry-predicate-map object-map)
         property (translate (get-object :owl:onProperty) prefix-2-base model)
-        
-        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
-        owl-has-self (curie-2-uri "owl:hasSelf" prefix-2-base)
-        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
 
-        on-property (.createProperty model owl-on-property)
-        has-self (.createProperty model owl-has-self)
-        rdf-type (.createProperty model rdf-type)
-        self (.createTypedLiteral model "true" (curie-2-uri "xsd:boolean" prefix-2-base)) 
-        
-        restriction (.createResource model owl-restriction)
+        create-property (fn [x] (create-jena-property x model prefix-2-base))
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
+        create-typed-literal (fn [x y] (create-jena-typed-literal x y model prefix-2-base))
+
+        on-property (create-property "owl:onProperty") 
+        has-self (create-property "owl:hasSelf")
+        rdf-type (create-property "rdf:type") 
+        self (create-typed-literal "true" "xsd:boolean") 
+        restriction (create-resource "owl:Restriction") 
 
         bnode (.createResource model)]
 
@@ -280,18 +274,15 @@
   [object-map prefix-2-base model]
   (let [get-object (curry-predicate-map object-map)
         property (translate (get-object :owl:onProperty) prefix-2-base model)
-        individual (translate (get-object :owl:hasValue) prefix-2-base model)
-        
-        owl-on-property (curie-2-uri "owl:onProperty" prefix-2-base)
-        owl-has-value (curie-2-uri "owl:hasValue" prefix-2-base)
-        owl-restriction (curie-2-uri "owl:Restriction" prefix-2-base) 
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+        individual (translate (get-object :owl:hasValue) prefix-2-base model) 
 
-        on-property (.createProperty model owl-on-property)
-        has-value (.createProperty model owl-has-value)
-        rdf-type (.createProperty model rdf-type)
-        
-        restriction (.createResource model owl-restriction)
+        create-property (fn [x] (create-jena-property x model prefix-2-base))
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
+
+        on-property (create-property "owl:onProperty") 
+        has-value (create-property "owl:hasValue")
+        rdf-type (create-property "rdf:type") 
+        restriction (create-resource "owl:Restriction")
 
         bnode (.createResource model)]
 
@@ -300,8 +291,6 @@
     (.add model bnode rdf-type restriction)
 
     bnode)) 
-
-
 
 (defn translate-restriction
   [object-map prefix-2-base model]
@@ -331,12 +320,11 @@
   (let [get-object (curry-predicate-map object-map)
         first-argument (translate (get-object :rdf:first) prefix-2-base model) 
         rest-argument (translate (get-object :rdf:rest) prefix-2-base model)
-        
-        rdf-first (curie-2-uri "rdf:first" prefix-2-base)
-        rdf-rest (curie-2-uri "rdf:rest" prefix-2-base)
 
-        rdf-first (.createProperty model rdf-first)
-        rdf-rest (.createProperty model rdf-rest)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+
+        rdf-first (create-property "rdf:first")
+        rdf-rest (create-property "rdf:rest")
 
         bnode (.createResource model)]
 
@@ -350,13 +338,12 @@
   (let [get-object (curry-predicate-map object-map)
         arguments (translate (get-object :owl:intersectionOf) prefix-2-base model) 
 
-        owl-class (curie-2-uri "owl:Class" prefix-2-base)
-        owl-intersection (curie-2-uri "owl:intersectionOf" prefix-2-base)
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
 
-        owl-intersection (.createProperty model owl-intersection)
-        owl-class (.createResource model owl-class)
-        rdf-type (.createProperty model rdf-type)
+        owl-intersection (create-property "owl:intersectionOf")
+        owl-class (create-resource "owl:Class")
+        rdf-type (create-property "rdf:type") 
 
         bnode (.createResource model)]
 
@@ -370,13 +357,12 @@
   (let [get-object (curry-predicate-map object-map)
         arguments (translate (get-object :owl:unionOf) prefix-2-base model) 
 
-        owl-class (curie-2-uri "owl:Class" prefix-2-base)
-        owl-union (curie-2-uri "owl:unionOf" prefix-2-base)
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
 
-        owl-union (.createProperty model owl-union)
-        owl-class (.createResource model owl-class)
-        rdf-type (.createProperty model rdf-type)
+        owl-union (create-property "owl:unionOf")
+        owl-class (create-resource "owl:Class")
+        rdf-type (create-property "rdf:type") 
 
         bnode (.createResource model)]
 
@@ -390,13 +376,12 @@
   (let [get-object (curry-predicate-map object-map)
         arguments (translate (get-object :owl:oneOf) prefix-2-base model) 
 
-        owl-class (curie-2-uri "owl:Class" prefix-2-base)
-        owl-one-of (curie-2-uri "owl:oneOf" prefix-2-base)
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
 
-        owl-one-of (.createProperty model owl-one-of)
-        owl-class (.createResource model owl-class)
-        rdf-type (.createProperty model rdf-type)
+        owl-one-of (create-property "owl:oneOf")
+        owl-class (create-resource "owl:Class")
+        rdf-type (create-property "rdf:type") 
 
         bnode (.createResource model)]
 
@@ -410,13 +395,12 @@
   (let [get-object (curry-predicate-map object-map)
         argument (translate (get-object :owl:complementOf) prefix-2-base model) 
 
-        owl-class (curie-2-uri "owl:Class" prefix-2-base)
-        owl-complement-of (curie-2-uri "owl:complementOf" prefix-2-base)
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
 
-        owl-complement-of (.createProperty model owl-complement-of)
-        owl-class (.createResource model owl-class)
-        rdf-type (.createProperty model rdf-type)
+        owl-complement-of (create-property "owl:complementOf")
+        owl-class (create-resource "owl:Class")
+        rdf-type (create-property "rdf:type") 
 
         bnode (.createResource model)]
 
@@ -430,13 +414,13 @@
   (let [get-object (curry-predicate-map object-map)
         arguments (translate (get-object :owl:members) prefix-2-base model)
 
-        owl-members (curie-2-uri "owl:members" prefix-2-base)
-        owl-disjoint-classes (curie-2-uri "owl:AllDisjointClasses" prefix-2-base)
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
 
-        members (.createProperty model owl-members)
-        disjoint-classes (.createResource model owl-disjoint-classes)
-        rdf-type (.createProperty model rdf-type)
+        members (create-property "owl:members")
+        disjoint-classes (create-resource "owl:AllDisjointClasses")
+        rdf-type (create-property "rdf:type") 
+
         bnode (.createResource model)]
 
     (.add model bnode members arguments)
@@ -450,17 +434,17 @@
         ;arguments (translate (get-object :owl:members) prefix-2-base model)
         arguments (translate (get-object :owl:distinctMembers) prefix-2-base model)
 
-        owl-members (curie-2-uri "owl:members" prefix-2-base)
-        owl-disjoint-classes (curie-2-uri "owl:AllDifferent" prefix-2-base)
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
 
-        members (.createProperty model owl-members)
-        disjoint-classes (.createResource model owl-disjoint-classes)
-        rdf-type (.createProperty model rdf-type)
+        members (create-property "owl:members")
+        different-individuals (create-resource "owl:AllDifferent")
+        rdf-type (create-property "rdf:type") 
+
         bnode (.createResource model)]
 
     (.add model bnode members arguments)
-    (.add model bnode rdf-type disjoint-classes)
+    (.add model bnode rdf-type different-individuals)
     bnode))
 
 (defn translate-inverse-of
@@ -468,8 +452,8 @@
   (let [get-object (curry-predicate-map object-map)
         argument (translate (get-object :owl:inverseOf) prefix-2-base model)
 
-        owl-inverse-of (curie-2-uri "owl:inverseOf" prefix-2-base)
-        inverse-of (.createProperty model owl-inverse-of)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        inverse-of (create-property "owl:inverseOf")
 
         bnode (.createResource model)]
     (.add model bnode inverse-of argument)
@@ -489,13 +473,12 @@
   (let [get-object (curry-predicate-map object-map)
         arguments (translate (get-object :owl:intersectionOf) prefix-2-base model) 
 
-        rdfs-datatype (curie-2-uri "rdfs:Datatype" prefix-2-base)
-        owl-intersection (curie-2-uri "owl:intersectionOf" prefix-2-base)
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
 
-        owl-intersection (.createProperty model owl-intersection)
-        rdfs-datatype (.createResource model rdfs-datatype)
-        rdf-type (.createProperty model rdf-type)
+        owl-intersection (create-property "owl:intersectionOf")
+        rdfs-datatype (create-resource "rdfs:Datatype")
+        rdf-type (create-property "rdf:type")
 
         bnode (.createResource model)]
 
@@ -509,13 +492,12 @@
   (let [get-object (curry-predicate-map object-map)
         arguments (translate (get-object :owl:unionOf) prefix-2-base model) 
 
-        rdfs-datatype (curie-2-uri "rdfs:Datatype" prefix-2-base)
-        owl-union (curie-2-uri "owl:unionOf" prefix-2-base)
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base)) 
 
-        owl-union (.createProperty model owl-union)
-        rdfs-datatype (.createResource model rdfs-datatype)
-        rdf-type (.createProperty model rdf-type)
+        owl-union (create-property "owl:unionOf")
+        rdfs-datatype (create-resource "rdfs:Datatype")
+        rdf-type (create-property "rdf:type")
 
         bnode (.createResource model)]
 
@@ -529,13 +511,12 @@
   (let [get-object (curry-predicate-map object-map)
         arguments (translate (get-object :owl:oneOf) prefix-2-base model) 
 
-        rdfs-datatype (curie-2-uri "rdfs:Datatype" prefix-2-base)
-        owl-one-of (curie-2-uri "owl:oneOf" prefix-2-base)
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
 
-        owl-one-of (.createProperty model owl-one-of)
-        rdfs-datatype (.createResource model rdfs-datatype)
-        rdf-type (.createProperty model rdf-type)
+        owl-one-of (create-property "owl:oneOf")
+        rdfs-datatype (create-resource "rdfs:Datatype")
+        rdf-type (create-property "rdf:type")
 
         bnode (.createResource model)]
 
@@ -549,13 +530,12 @@
   (let [get-object (curry-predicate-map object-map)
         argument (translate (get-object :owl:complementOf) prefix-2-base model) 
 
-        rdfs-datatype (curie-2-uri "rdfs:Datatype" prefix-2-base) 
-        owl-complement-of (curie-2-uri "owl:datatypeComplementOf" prefix-2-base)
-        rdf-type (curie-2-uri "rdf:type" prefix-2-base)
+        create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
 
-        owl-complement-of (.createProperty model owl-complement-of)
-        rdfs-datatype (.createResource model rdfs-datatype)
-        rdf-type (.createProperty model rdf-type)
+        owl-complement-of (create-property "owl:datatypeComplementOf")
+        rdfs-datatype (create-resource "rdfs:Datatype")
+        rdf-type (create-property "rdf:type")
 
         bnode (.createResource model)]
 
@@ -664,18 +644,16 @@
 
 (defn add-annotation
   [bnode subject predicate object prefix-2-base model]
-  (let [rdf-type (curie-2-uri "rdf:type" prefix-2-base)
-        ;owl-annotation (curie-2-uri "owl:Annotation" prefix-2-base)
-        owl-annotation (curie-2-uri "owl:Axiom" prefix-2-base)
-        owl-annotated-source (curie-2-uri "owl:annotatedSource" prefix-2-base)
-        owl-annotated-property (curie-2-uri "owl:annotatedProperty" prefix-2-base)
-        owl-annotated-target (curie-2-uri "owl:annotatedTarget" prefix-2-base)
+  (let [create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base)) 
 
-        owl-annotation (.createResource model owl-annotation)
-        owl-annotated-source (.createProperty model owl-annotated-source)
-        owl-annotated-property (.createProperty model owl-annotated-property)
-        owl-annotated-target (.createProperty model owl-annotated-target)
-        rdf-type (.createProperty model rdf-type)]
+        ;owl-annotation (create-resource "owl:Annotation")
+        owl-annotation (create-resource "owl:Axiom")
+        owl-annotated-source (create-property "owl:annotatedSource")
+        owl-annotated-property (create-property "owl:annotatedProperty")
+        owl-annotated-target (create-property "owl:annotatedTarget")
+        rdf-type (create-property "rdf:type")]
+
       (.add model bnode rdf-type owl-annotation)
       (.add model bnode owl-annotated-source subject)
       (.add model bnode owl-annotated-property (.asResource predicate)) ;need a resource here 
@@ -684,17 +662,15 @@
 
 (defn add-reification
   [bnode subject predicate object prefix-2-base model]
-  (let [rdf-type (curie-2-uri "rdf:type" prefix-2-base)
-        rdf-statement (curie-2-uri "rdf:Statement" prefix-2-base)
-        rdf-subject (curie-2-uri "rdf:subject" prefix-2-base)
-        rdf-predicate (curie-2-uri "rdf:predicate" prefix-2-base)
-        rdf-object (curie-2-uri "rdf:object" prefix-2-base)
+  (let [create-property (fn [x] (create-jena-property x model prefix-2-base)) 
+        create-resource (fn [x] (create-jena-resource x model prefix-2-base))
+        
+        rdf-statement (create-resource "rdf:Statement")
+        rdf-subject (create-property "rdf:subject")
+        rdf-predicate (create-property "rdf:predicate")
+        rdf-object (create-property "rdf:object")
+        rdf-type (create-property "rdf:type")]
 
-        rdf-statement (.createResource model rdf-statement)
-        rdf-subject (.createProperty model rdf-subject)
-        rdf-predicate (.createProperty model rdf-predicate)
-        rdf-object (.createProperty model rdf-object)
-        rdf-type (.createProperty model rdf-type)]
       (.add model bnode rdf-type rdf-statement)
       (.add model bnode rdf-subject subject)
       (.add model bnode rdf-predicate (.asResource predicate)) ;need a resource here 
