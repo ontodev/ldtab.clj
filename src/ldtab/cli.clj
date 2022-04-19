@@ -236,7 +236,12 @@
       (export-db/export-tsv db output)
 
       (= (str/lower-case output-format) "turtle")
-      (export-db/export-turtle db output))))
+      (export-db/export-turtle db output)
+
+      (not (nil? table))
+      (export-db/export-tsv db table output)
+
+      :else (export-db/export-tsv db output))))
 
 ;TODO handle options for subcommand
 ;TODO validate tsv file
