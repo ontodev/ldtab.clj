@@ -40,6 +40,10 @@
    ["-s" "--streamed"];TODO 
    ])
 
+(defn get-file-extension
+  [path]
+  (last (str/split path #"\.")))
+
 (defn usage [options-summary]
   (->> ["LDTab is a tool for working with RDF datasets and OWL using SQL databases."
         "The immediate use case for LDTab is an ontology term browser"
@@ -157,6 +161,9 @@
     (.exists (io/as-file (nth arguments 2)))
     {:exit-message "Invalid input: output file (second argument) already exists."} 
 
+    (not (contains? #{"ttl" "tsv"} (get-file-extension (nth arguments 2))))
+    {:exit-message (str "Invalid output format: " (get-file-extension (nth arguments 2)))} 
+
     :else
     {:action command})))
 
@@ -222,20 +229,20 @@
         db (second arguments) 
         output (nth arguments 2)
         table (:table options)
-        output-format (:format options)
+        extension (get-file-extension output)
         streamed (:streamed options)];TODO: add options for output format
     (cond
       ;TODO guess output format based on file extension
-      (and table (= (str/lower-case output-format) "tsv"))
+      (and table (= extension "tsv"))
       (export-db/export-tsv db table output)
 
-      (and table (= (str/lower-case output-format) "turtle"))
+      (and table (= extension "ttl"))
       (export-db/export-turtle db table output)
       
-      (= (str/lower-case output-format) "tsv")
+      (= extension "tsv")
       (export-db/export-tsv db output)
 
-      (= (str/lower-case output-format) "turtle")
+      (= extension "ttl")
       (export-db/export-turtle db output)
 
       (not (nil? table))
