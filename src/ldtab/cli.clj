@@ -37,7 +37,12 @@
     :parse-fn #(identity %)] 
    ["-f" "--format FORMAT" "Output format"
     :parse-fn #(identity %)]
+   ["-s" "--streamed"];TODO 
    ])
+
+(defn get-file-extension
+  [path]
+  (last (str/split path #"\.")))
 
 (defn usage [options-summary]
   (->> ["LDTab is a tool for working with RDF datasets and OWL using SQL databases."
@@ -156,6 +161,9 @@
     (.exists (io/as-file (nth arguments 2)))
     {:exit-message "Invalid input: output file (second argument) already exists."} 
 
+    (not (contains? #{"ttl" "tsv"} (get-file-extension (nth arguments 2))))
+    {:exit-message (str "Invalid output format: " (get-file-extension (nth arguments 2)))} 
+
     :else
     {:action command})))
 
@@ -220,10 +228,27 @@
   (let [{:keys [options arguments errors summary]} (parse-opts command export-options)
         db (second arguments) 
         output (nth arguments 2)
-        table (:table options)];TODO: add options for output format
-    (if table 
+        table (:table options)
+        extension (get-file-extension output)
+        streamed (:streamed options)];TODO: add options for output format
+    (cond
+      ;TODO guess output format based on file extension
+      (and table (= extension "tsv"))
       (export-db/export-tsv db table output)
-      (export-db/export-tsv db output))))
+
+      (and table (= extension "ttl"))
+      (export-db/export-turtle db table output)
+      
+      (= extension "tsv")
+      (export-db/export-tsv db output)
+
+      (= extension "ttl")
+      (export-db/export-turtle db output)
+
+      (not (nil? table))
+      (export-db/export-tsv db table output)
+
+      :else (export-db/export-tsv db output))))
 
 ;TODO handle options for subcommand
 ;TODO validate tsv file
