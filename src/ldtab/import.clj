@@ -78,20 +78,20 @@
 
 (defn insert-tail
   "Insert thin and thick triples currently in the backlog windows."
-  [db transaction graph backlog thin-backlog thick-backlog unstated-annotation-backlog]
+  [db table transaction graph backlog thin-backlog thick-backlog unstated-annotation-backlog]
   (let [[thin1 thin2 thin3] thin-backlog
         [thick1 thick2 thick3] thick-backlog
         backlog-triples (flatten (map :triples (vals backlog))) 
         backlog-json (thin2thick/thin-2-thick backlog-triples)] 
-    (when backlog-json (insert-triples backlog-json db transaction graph))
-    (when thin1 (insert-triples thin1 db transaction graph))
-    (when thick1 (insert-triples thick1 db transaction graph))
-    (when thin2 (insert-triples thin2 db transaction graph))
-    (when thick2 (insert-triples thick2 db transaction graph))
-    (when thin3 (insert-triples thin3 db transaction graph))
-    (when thick3 (insert-triples thick3 db transaction graph))
+    (when backlog-json (insert-triples backlog-json db table transaction graph))
+    (when thin1 (insert-triples thin1 db table transaction graph))
+    (when thick1 (insert-triples thick1 db table transaction graph))
+    (when thin2 (insert-triples thin2 db table transaction graph))
+    (when thick2 (insert-triples thick2 db table transaction graph))
+    (when thin3 (insert-triples thin3 db table transaction graph))
+    (when thick3 (insert-triples thick3 db table transaction graph))
     (when unstated-annotation-backlog
-      (insert-triples unstated-annotation-backlog db transaction graph))))
+      (insert-triples unstated-annotation-backlog db table transaction graph))))
 
 (defn associate-annotations-with-statements
   [thin thick thin-backlog thick-backlog unstated-annotation-backlog]
@@ -133,7 +133,9 @@
 
 ;TODO update streamed approach to work with user-specifid tables
 (defn import-rdf-stream
-  [db-path rdf-path graph]
+  ([db-path rdf-path graph]
+   (import-rdf-stream db-path "statement" rdf-path graph)) 
+  ([db-path table rdf-path graph]
   (let [db (load-db db-path)
         is (new FileInputStream rdf-path)
         it (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")
@@ -144,7 +146,7 @@
            unstated-annotation-backlog (hash-set)
            transaction 1]
       (if-not (.hasNext it)
-        (insert-tail db transaction graph backlog thin-backlog thick-backlog unstated-annotation-backlog)
+        (insert-tail db table transaction graph backlog thin-backlog thick-backlog unstated-annotation-backlog)
         (let [[thin kept thick] (parsing/parse-window it windowsize backlog)
               annotation-handling (associate-annotations-with-statements thin
                                                                          thick
@@ -156,15 +158,15 @@
               annotations (:annotations annotation-handling)] 
 
           ;insert into database 
-          (when thin (insert-triples thin db transaction graph))
-          (when thick (insert-triples thick db transaction graph))
-          (when annotations (insert-triples annotations db transaction graph))
+          (when thin (insert-triples thin db table transaction graph))
+          (when thick (insert-triples thick db table transaction graph))
+          (when annotations (insert-triples annotations db table transaction graph))
 
           (recur kept 
                  (:thin-backlog annotation-handling)
                  (:thick-backlog annotation-handling)
                  (:unstated-annotation-backlog annotation-handling)
-                 transaction)))))) 
+                 transaction))))))) 
 
 (defn load-prefixes
   [db]

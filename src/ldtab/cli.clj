@@ -217,7 +217,7 @@
         table (:table options)]
     (if streamed
       (if table
-        (println "Streamed procesing doesn't provide support for option --table (yet)")
+        (import-db/import-rdf-stream db table ontology "graph")
         (import-db/import-rdf-stream db ontology "graph"))
       (if table
         (import-db/import-rdf-model db table ontology "graph")
