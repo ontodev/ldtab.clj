@@ -690,7 +690,7 @@
         (doseq [x (get predicate-map k)]
           (.add model
                 bnode
-                (.createProperty model (curie-2-uri (name k) prefix-2-base))
+                (.createProperty model (curie-2-uri (subs (str k) 1) prefix-2-base))
                 (translate-object (:object x) (:datatype x) prefix-2-base model))))
       (cond
         (= meta-key "owl:Annotation")
