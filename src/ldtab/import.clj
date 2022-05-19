@@ -15,6 +15,10 @@
   :subprotocol "sqlite"
   :subname path})
 
+(defn load-prefixes
+  [db]
+  (jdbc/query db ["SELECT * FROM prefix"]))
+
 (defn encode-json
   "Given information for a row in the statment table,
   encode thick-triple information as JSON strings."
@@ -78,11 +82,12 @@
 
 (defn insert-tail
   "Insert thin and thick triples currently in the backlog windows."
-  [db table transaction graph backlog thin-backlog thick-backlog unstated-annotation-backlog]
+  [db table transaction graph backlog thin-backlog thick-backlog unstated-annotation-backlog iri2prefix]
   (let [[thin1 thin2 thin3] thin-backlog
         [thick1 thick2 thick3] thick-backlog
-        backlog-triples (flatten (map :triples (vals backlog))) 
-        backlog-json (thin2thick/thin-2-thick backlog-triples)] 
+        backlog-triples (flatten (map :triples (vals backlog)))
+        backlog-json (thin2thick/thin-2-thick backlog-triples iri2prefix)]
+
     (when backlog-json (insert-triples backlog-json db table transaction graph))
     (when thin1 (insert-triples thin1 db table transaction graph))
     (when thick1 (insert-triples thick1 db table transaction graph))
@@ -94,9 +99,9 @@
       (insert-triples unstated-annotation-backlog db table transaction graph))))
 
 (defn associate-annotations-with-statements
-  [thin thick thin-backlog thick-backlog unstated-annotation-backlog]
-  (let [thin-json (thin2thick/thin-2-thick thin)
-        thick-json (thin2thick/thin-2-thick thick) 
+  [thin thick thin-backlog thick-backlog unstated-annotation-backlog iri2prefix]
+  (let [thin-json (thin2thick/thin-2-thick thin iri2prefix)
+        thick-json (thin2thick/thin-2-thick thick iri2prefix) 
 
         ;TODO set operations are slow
         annotation-json (filter #(contains? % "annotation") thick-json)
@@ -137,40 +142,41 @@
    (import-rdf-stream db-path "statement" rdf-path graph)) 
   ([db-path table rdf-path graph]
   (let [db (load-db db-path)
+        iri2prefix (load-prefixes db)
         is (new FileInputStream rdf-path)
         it (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")
-        windowsize 60000] ;Note: this window size is pretty large
+        ;it (RDFDataMgr/createIteratorTriples is Lang/TTL "base")
+        windowsize 500]
     (loop [backlog {}
            thin-backlog [nil nil nil] 
            thick-backlog [nil nil nil]
            unstated-annotation-backlog (hash-set)
            transaction 1]
+
       (if-not (.hasNext it)
-        (insert-tail db table transaction graph backlog thin-backlog thick-backlog unstated-annotation-backlog)
+        (insert-tail db table transaction graph backlog thin-backlog thick-backlog unstated-annotation-backlog iri2prefix)
         (let [[thin kept thick] (parsing/parse-window it windowsize backlog)
               annotation-handling (associate-annotations-with-statements thin
                                                                          thick
                                                                          thin-backlog
                                                                          thick-backlog
-                                                                         unstated-annotation-backlog)
-              thin (:thin annotation-handling)
-              thick (:thick annotation-handling)
+                                                                         unstated-annotation-backlog
+                                                                         iri2prefix)
+              thin-annotated (:thin annotation-handling)
+              thick-annotated (:thick annotation-handling)
               annotations (:annotations annotation-handling)] 
 
           ;insert into database 
-          (when thin (insert-triples thin db table transaction graph))
-          (when thick (insert-triples thick db table transaction graph))
+          (when thin-annotated (insert-triples thin-annotated db table transaction graph))
+          (when thick-annotated (insert-triples thick-annotated db table transaction graph))
           (when annotations (insert-triples annotations db table transaction graph))
 
           (recur kept 
                  (:thin-backlog annotation-handling)
                  (:thick-backlog annotation-handling)
                  (:unstated-annotation-backlog annotation-handling)
-                 transaction))))))) 
+                 transaction)))))))
 
-(defn load-prefixes
-  [db]
-  (jdbc/query db ["SELECT * FROM prefix"]))
 
 ;TODO: we still cannot represent annotations/reifications that are not also stated
 (defn import-rdf-model
@@ -187,3 +193,7 @@
         thick-triples (remove superfluous thick-triples)]
     (insert-triples thick-triples db table 1 graph))))
 
+(defn -main
+  "Currently only used for manual testing."
+  [& args] 
+  (time (import-rdf-stream (first args) (second args) "graph")))
