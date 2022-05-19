@@ -182,6 +182,23 @@
                                                                     updated
                                                                     (set (get-in res [(first ks) :dependencies]))))))))))
 
+;BUGFIX:
+;updates for (blank) nodes need to be propagated
+;both upwards and downwards blank node dependency chains.
+;TODO: determine fixed-point for propagation
+;(this is necessary if two subjects depend on the same blank node)
+(defn trickle-down
+  [m updated] 
+  (loop [to-update updated
+         visited #{}
+         res m]
+    (if (empty? to-update)
+      res
+      (recur (concat (rest to-update)
+                     (remove visited (:dependencies (get m (first to-update))))) 
+             (conj visited (first to-update))
+             (assoc-in res [(first to-update) :updated] true))))) 
+
 ;TODO add proper doc string
 (defn update-backlog-map
   "Given a backlog map, and an update backlog map, return the corresponding updated backlog map."
@@ -190,9 +207,11 @@
         merged (merge-updates reset-updates update-map) 
         reset-resolved (reset-key merged :resolved)
         ;updated-1 (update-key reset-resolved :updated updated?);TODO this is slow
-        updated (set (map first (filter (fn [[k v]] (:updated v)) update-map)))
+        updated (set (map first (filter (fn [[k v]] (:updated v)) update-map))) 
         updated-1 (set-update reset-resolved updated)
-        resolved (update-key updated-1 :resolved is-resolved?)];TODO this should be improved
+        updated (flatten (map first (filter (fn [[k v]] (:updated v)) updated-1)))
+        updated-2 (trickle-down updated-1 updated) 
+        resolved (update-key updated-2 :resolved is-resolved?)]
     resolved)) 
 
 (defn parse-window
