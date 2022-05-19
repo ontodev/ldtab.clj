@@ -2,6 +2,7 @@
   (:require [cheshire.core :as cs])
   (:gen-class))
 
+
 ;TODO CURIEs
 (defn is-annotation-map?
   [predicate-map]
@@ -159,13 +160,18 @@
      as described above."""
   (let [owl-annototation (:object (first (get predicate-map "owl:annotatedSource")))
         rdf-reification (:object (first (get predicate-map "rdf:subject")))]
-    (cond owl-annototation (if (map? owl-annototation) 
-                             (encode-raw-annotation-map-recursion predicate-map previous-annotation)
-                             (encode-raw-annotation-map-base predicate-map previous-annotation))
-          rdf-reification (if (map? rdf-reification)
-                            (encode-raw-reification-map-recursion predicate-map previous-annotation)
-                            (encode-raw-reification-map-base predicate-map previous-annotation))
-                            )))) 
+
+    ;TODO: FIX check for nested annotations
+    (cond owl-annototation (encode-raw-annotation-map-base predicate-map previous-annotation)
+          rdf-reification (encode-raw-reification-map-base predicate-map previous-annotation)))))
+
+    ;(cond owl-annototation (if (map? owl-annototation) ;THIS test is incorrect
+    ;                         (encode-raw-annotation-map-recursion predicate-map previous-annotation)
+    ;                         (encode-raw-annotation-map-base predicate-map previous-annotation))
+    ;      rdf-reification (if (map? rdf-reification)
+    ;                        (encode-raw-reification-map-recursion predicate-map previous-annotation)
+    ;                        (encode-raw-reification-map-base predicate-map previous-annotation))
+    ;                        )))) 
 
 (defn get-annotated-triple
   [annotation]
