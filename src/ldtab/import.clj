@@ -2,6 +2,7 @@
   (:require [clojure.java.jdbc :as jdbc]
             [ldtab.rdf-model :as rdf-model]
             [ldtab.parsing :as parsing] 
+            [clojure.string :as str]
             [clojure.set :as set]
             [cheshire.core :as cs]
             [ldtab.thin2thick :as thin2thick])
@@ -144,8 +145,9 @@
   (let [db (load-db db-path)
         iri2prefix (load-prefixes db)
         is (new FileInputStream rdf-path)
-        it (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")
-        ;it (RDFDataMgr/createIteratorTriples is Lang/TTL "base")
+        it (if (= (last (str/split rdf-path #"\.")) "ttl") ;guess input format
+             (RDFDataMgr/createIteratorTriples is Lang/TTL "base")
+             (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")) ;use RDFXML by default
         windowsize 500]
     (loop [backlog {}
            thin-backlog [nil nil nil] 

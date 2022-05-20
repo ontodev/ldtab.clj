@@ -29,16 +29,14 @@
   [["-h" "--help"]
    ["-t" "--table TABLE" "Table"
     :parse-fn #(identity %)]
-   ["-s" "--streamed"]])
+   ["-s" "--streaming"]])
 
 (def export-options
   [["-h" "--help"]
    ["-t" "--table TABLE" "Table"
     :parse-fn #(identity %)] 
    ["-f" "--format FORMAT" "Output format"
-    :parse-fn #(identity %)]
-   ["-s" "--streamed"];TODO 
-   ])
+    :parse-fn #(identity %)]])
 
 (defn get-file-extension
   [path]
@@ -207,15 +205,15 @@
    (init-db/create-database db)))
 
 ;TODO handle options for subcommend
-;TODO add options to use 'streamed' or 'non-streamed' version
+;TODO add options to use 'streaming' or 'non-streaming' version
 (defn ldtab-import
   [command]
   (let [{:keys [options arguments errors summary]} (parse-opts command import-options)
         db (second arguments)
         ontology (nth arguments 2)
-        streamed (:streamed options)
+        streaming (:streaming options)
         table (:table options)]
-    (if streamed
+    (if streaming
       (if table
         (import-db/import-rdf-stream db table ontology "graph")
         (import-db/import-rdf-stream db ontology "graph"))
@@ -229,8 +227,7 @@
         db (second arguments) 
         output (nth arguments 2)
         table (:table options)
-        extension (get-file-extension output)
-        streamed (:streamed options)];TODO: add options for output format
+        extension (get-file-extension output)];TODO: add options for output format
     (cond
       ;TODO guess output format based on file extension
       (and table (= extension "tsv"))
