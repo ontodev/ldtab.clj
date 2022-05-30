@@ -10,8 +10,11 @@
     (distinct blanknodes)))
 
 (defn get-blanknode-dependencies
-  "Given a subject in an RDF model,
-  return all statements with information about this subject.";(i.e., a stanza)
+  "Given a subject S in a model of an RDF graph G,
+  return all triples (s,p,o) in G where
+  (a) s = S, or
+  (b) s is a blank node
+      and there exists a path (S,p_1,o_1),...,(s_n,p_n,s),(s,p,o)" 
   [subject model]
     (let [triples (.listStatements model subject nil nil) 
           tripleList (seq (.toList triples))
@@ -22,8 +25,9 @@
       res))
 
 (defn get-root-subjects
-  "Given an RDF mode, return all subjects that are at the root
-  of a (possibly empty) blanknode dependency chain."
+  "Given a model of an RDF graph, return all subjects that are 
+  (a) not a blank node, or 
+  (b) a blank node that does not occur as an object in any triple of the given RDF model." 
   [model]
   (let [subjects (set (seq (.toList (.listSubjects model))))
         objects (seq (.toList (.listObjects model))) 
@@ -32,7 +36,9 @@
     roots))
 
 (defn group-thin-triple-dependencies
-  "Given an RDF graph, group triples according to information about subjects."
+  "Given an RDF graph, group triples w.r.t. bank node paths
+  (a blank node path is a path (s_1,p_1,o_1),...,(s_n,p_n,o_n) where
+ o_i = s_{i+1} are blank nodes for 1 <= i <= n."
   [input]
   (let [in (RDFDataMgr/open input)
         model (.read (ModelFactory/createDefaultModel) in "")
