@@ -35,7 +35,7 @@
         roots (filter #(not (contains? blanknode-objects %)) subjects)]
     roots))
 
-(defn group-thin-triple-dependencies
+(defn group-blank-node-paths
   "Given an RDF graph, group triples w.r.t. bank node paths
   (a blank node path is a path (s_1,p_1,o_1),...,(s_n,p_n,o_n) where
  o_i = s_{i+1} are blank nodes for 1 <= i <= n."

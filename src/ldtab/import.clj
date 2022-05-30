@@ -186,7 +186,7 @@
    (import-rdf-model db-path "statement" rdf-path graph)) 
   ([db-path table rdf-path graph]
   (let [db (load-db db-path)
-        thin-triples (rdf-model/group-thin-triple-dependencies rdf-path)
+        thin-triples (rdf-model/group-blank-node-paths rdf-path)
         iri2prefix (load-prefixes db)
         thick-triples (map #(thin2thick/thin-2-thick % iri2prefix) thin-triples)
         thick-triples (apply concat thick-triples)
