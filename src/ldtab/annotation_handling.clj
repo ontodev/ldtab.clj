@@ -69,10 +69,11 @@
   (let [subject (:object (first (get predicate-map "owl:annotatedSource")))
         predicate (:object (first (get predicate-map "owl:annotatedProperty")))
         object (:object (first (get predicate-map "owl:annotatedTarget")))
+        rdf-type (:object (first (get predicate-map "rdf:type")));can be "owl:Axiom" or "owl:Annotation"
 
         annotation-properties (remove is-owl-property? (keys predicate-map))
         annotation-objects (map #(get predicate-map %) annotation-properties) 
-        annotation-objects (map #(map (fn [x] (assoc x :meta "owl:Annotation")) %) annotation-objects) 
+        annotation-objects (map #(map (fn [x] (assoc x :meta rdf-type)) %) annotation-objects) 
         annotation-map (zipmap annotation-properties annotation-objects)
         updated-annotation (update-annotation-map annotation-map previous-annotation)] 
 
