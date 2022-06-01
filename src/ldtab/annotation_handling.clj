@@ -2,21 +2,6 @@
   (:require [cheshire.core :as cs])
   (:gen-class))
 
-
-;TODO CURIEs
-(defn is-annotation-map?
-  [predicate-map]
-  (and
-    (contains? predicate-map "owl:annotatedSource")
-    (contains? predicate-map "owl:annotatedProperty")
-    (contains? predicate-map "owl:annotatedTarget"))) 
-
-;NB this is something specific to wiring
-(defn is-annotation-triple?
-  [thick-triple]
-  (let [predicate (:predicate thick-triple)]
-    (= predicate "owl:Axiom")))
-
 (defn is-owl-property?
   [property]
   (cond
@@ -176,21 +161,3 @@
                                   (encode-raw-annotation-map-recursion predicate-map previous-annotation))
                             (encode-raw-reification-map-base predicate-map previous-annotation))
                             )))) 
-
-(defn get-annotated-triple
-  [annotation]
-  (let [predicate-map (:object annotation)
-        subject (:object (first (get predicate-map "owl:annotatedSource")))
-        predicate (:object (first (get predicate-map "owl:annotatedProperty")))
-        object (:object (first (get predicate-map "owl:annotatedTarget")))]
-    {:object object, :predicate predicate, :subject subject})) 
-
-(defn get-annotations-for-assertions
-  [thick-triples]
-  """Given a set of thick triples,
-    return anntations for asserted statements.""" 
-  (let [triple-set (set thick-triples)
-        annotations (filter is-annotation-triple? thick-triples) 
-        annotated-triples-contained (filter #(contains? triple-set (get-annotated-triple %)) annotations)]
-    annotated-triples-contained))
-
