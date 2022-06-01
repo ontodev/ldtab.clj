@@ -147,7 +147,8 @@
   (let [owl-annototation (:object (first (get predicate-map "owl:annotatedSource")))
         rdf-reification (:object (first (get predicate-map "rdf:subject")))] 
 
-    (cond owl-annototation (if (map? owl-annototation)
+    (cond owl-annototation (if (map? owl-annototation) ;check for nesting ...
+                             ;.. of annotations/reifications
                              (cond (contains? owl-annototation "owl:annotatedSource") 
                                    (encode-raw-annotation-map-recursion predicate-map previous-annotation)
                                    (contains? owl-annototation "rdf:subject")
@@ -159,5 +160,4 @@
                                   (encode-raw-reification-map-recursion predicate-map previous-annotation)
                                   (contains? rdf-reification "owl:annotatedSource")
                                   (encode-raw-annotation-map-recursion predicate-map previous-annotation))
-                            (encode-raw-reification-map-base predicate-map previous-annotation))
-                            )))) 
+                            (encode-raw-reification-map-base predicate-map previous-annotation))))))
