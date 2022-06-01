@@ -54,6 +54,8 @@
       (= number-of-types 1) (.getObject (first typing-triples))
       :else (NodeFactory/createURI "ambiguous")))) 
 
+;TODO handling of 'existential blank nodes' appearing as objects
+;TODO rename to 'skolemise-existential-blank-nodes'
 (defn encode-blank-nodes
   "Given a set of triples,
     identify root blank nodes and add triples of the form
@@ -86,6 +88,10 @@
         objects (set (map #(.getObject %) triples))
         root (set/difference subjects objects)
         blank-roots (filter #(.isBlank %) root)
+        ;TODO blank-leaves also need to be skolemised:
+        ;for a given blank-leaf [s p _b:leaf] 
+        ;we need to add the triple [_b:leaf rdf:type wiring:blanknode]
+        ;so that we collapse the blank node into it's skolem form
 
         additions (map #(new Triple (NodeFactory/createURI (str "wiring:blanknode:" (gensym))) 
                                     ;(NodeFactory/createURI "wiring:blanknode") 
@@ -218,7 +224,7 @@
      {:subject subject, :predicate predicate, :object object, :datatype (get-datatype o iri2prefix)})))
 
 (defn thin-2-thick-raw
-   "Given a set of thin triples, return the corresponding set of (raw) thick triples."
+   "Given a set of thin triples, collapse blank nodes into RDF Thick Triples (with datatypes)."
   ([triples]
    (let [blank-node-encoding (encode-blank-nodes triples) 
          subject-2-thin-triples (map-subject-2-thin-triples blank-node-encoding)
@@ -237,7 +243,7 @@
   (let [raw-thick-triples (thin-2-thick-raw triples)
         ;TODO I am requiring the use of CURIEs for owl, rdf, and rdfs
         annotations (map #(if (or (= (:predicate %) "owl:Annotation")
-                                    (= (:predicate %) "owl:Axiom")
+                                    (= (:predicate %) "owl:Axiom");NOTE: this states a triple
                                     (= (:predicate %) "rdf:Statement"))
                               (ann/encode-raw-annotation-map (:object %)) 
                               %) raw-thick-triples)
