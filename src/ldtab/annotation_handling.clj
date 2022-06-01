@@ -159,19 +159,17 @@
    """Given a predicate map, recursively translate raw thick triple annotations
      as described above."""
   (let [owl-annototation (:object (first (get predicate-map "owl:annotatedSource")))
-        rdf-reification (:object (first (get predicate-map "rdf:subject")))]
+        rdf-reification (:object (first (get predicate-map "rdf:subject")))] 
 
-    ;TODO: FIX check for nested annotations
-    (cond owl-annototation (encode-raw-annotation-map-base predicate-map previous-annotation)
-          rdf-reification (encode-raw-reification-map-base predicate-map previous-annotation)))))
-
-    ;(cond owl-annototation (if (map? owl-annototation) ;THIS test is incorrect
-    ;                         (encode-raw-annotation-map-recursion predicate-map previous-annotation)
-    ;                         (encode-raw-annotation-map-base predicate-map previous-annotation))
-    ;      rdf-reification (if (map? rdf-reification)
-    ;                        (encode-raw-reification-map-recursion predicate-map previous-annotation)
-    ;                        (encode-raw-reification-map-base predicate-map previous-annotation))
-    ;                        )))) 
+    (cond owl-annototation (if (and (map? owl-annototation)
+                                    (contains? owl-annototation "owl:annotatedSource")) 
+                             (encode-raw-annotation-map-recursion predicate-map previous-annotation)
+                             (encode-raw-annotation-map-base predicate-map previous-annotation))
+          rdf-reification (if (and (map? rdf-reification)
+                                   (contains? rdf-reification "rdf:subject"))
+                            (encode-raw-reification-map-recursion predicate-map previous-annotation)
+                            (encode-raw-reification-map-base predicate-map previous-annotation))
+                            )))) 
 
 (defn get-annotated-triple
   [annotation]
