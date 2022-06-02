@@ -2,6 +2,7 @@
   (:require [clojure.set :as set]
             [clojure.string :as str]
             [ldtab.annotation-handling :as ann]
+            [ldtab.gci-handling :as gci]
             [cheshire.core :as cs])
   (:import [org.apache.jena.graph NodeFactory Triple])
   (:gen-class))
@@ -203,9 +204,10 @@
   [thin-triples]
   (group-by #(.getSubject %) thin-triples)) 
 
+
 (defn thin-2-thick-triple-raw
-  "Given a thin triple t and a map from subjects to thin triples,
-    return t as a (raw) thick triple."
+  "Given a root thin triple t (see function root-triples) and a map from subjects to thin triples in an RDF graph G,
+    return the (raw) thick triple of t in G."
   ([triple subject-2-thin-triples]
   (let [s (.getSubject triple)
         p (.getPredicate triple)
@@ -242,22 +244,31 @@
   ([triples]
   (let [raw-thick-triples (thin-2-thick-raw triples)
         ;TODO I am requiring the use of CURIEs for owl, rdf, and rdfs
+         gcis (map #(if (and (map? (:object %))
+                             (contains? (:object %) "rdfs:subClassOf"))
+                      (gci/encode-raw-gci-map (:object %))
+                      %) raw-thick-triples)
         annotations (map #(if (or (= (:predicate %) "owl:Annotation")
                                     (= (:predicate %) "owl:Axiom");NOTE: this states a triple
                                     (= (:predicate %) "rdf:Statement"))
                               (ann/encode-raw-annotation-map (:object %)) 
-                              %) raw-thick-triples)
+                              %) gcis)
         sorted (map sort-json annotations)
         normalised (map #(cs/parse-string (cs/generate-string %)) sorted)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
     normalised))
   ([triples iri2prefix]
    (let [raw-thick-triples (thin-2-thick-raw triples iri2prefix)
          ;TODO I am requiring the use of CURIEs for owl, rdf, and rdfs
+         ;TODO: check for annotated GCIs
+         gcis (map #(if (and (map? (:object %))
+                             (contains? (:object %) "rdfs:subClassOf"))
+                      (gci/encode-raw-gci-map (:object %))
+                      %) raw-thick-triples)
          annotations (map #(if (or (= (:predicate %) "owl:Annotation")
                                    (= (:predicate %) "owl:Axiom")
                                    (= (:predicate %) "rdf:Statement"))
                              (ann/encode-raw-annotation-map (:object %)) 
-                             %) raw-thick-triples)
+                             %) gcis)
          sorted (map sort-json annotations)
          normalised (map #(cs/parse-string (cs/generate-string %)) sorted)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
      normalised)))
