@@ -61,14 +61,18 @@
         superclass (:object superclass)
         annotation (dissoc object "owl:annotatedSource")
         annotation (dissoc annotation "owl:annotatedProperty")
-        annotation (dissoc annotation "owl:annotatedTarget") ]
+        annotation (dissoc annotation "owl:annotatedTarget")
+        rdf-type (:object (first (get annotation "rdf:type")))
+        annotation (dissoc annotation "rdf:type")
+        annotation (assoc annotation "meta" rdf-type)
+        ;TODO handle recursive annotations
+        ;TODO datatypes for annotations? (where do we but the 'meta' information?)
+        ]
     {:subject subclass
      :predicate "rdfs:subClassOf"
      :object superclass
      :datatype datatype
      :annotation annotation}))
-
-
 
 (defn encode-raw-gci-map
   [raw-triple]
