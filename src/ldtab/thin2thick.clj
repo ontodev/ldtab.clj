@@ -244,15 +244,15 @@
   ([triples]
   (let [raw-thick-triples (thin-2-thick-raw triples)
         ;TODO I am requiring the use of CURIEs for owl, rdf, and rdfs
-         gcis (map #(if (and (map? (:object %))
-                             (contains? (:object %) "rdfs:subClassOf"))
-                      (gci/encode-raw-gci-map (:object %))
-                      %) raw-thick-triples)
+        ; gcis (map #(if (and (map? (:object %))
+        ;                     (contains? (:object %) "rdfs:subClassOf"))
+        ;              (gci/encode-raw-gci-map (:object %))
+        ;              %) raw-thick-triples)
         annotations (map #(if (or (= (:predicate %) "owl:Annotation")
                                     (= (:predicate %) "owl:Axiom");NOTE: this states a triple
                                     (= (:predicate %) "rdf:Statement"))
                               (ann/encode-raw-annotation-map (:object %)) 
-                              %) gcis)
+                              %) raw-thick-triples)
         sorted (map sort-json annotations)
         normalised (map #(cs/parse-string (cs/generate-string %)) sorted)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
     normalised))
@@ -260,15 +260,15 @@
    (let [raw-thick-triples (thin-2-thick-raw triples iri2prefix)
          ;TODO I am requiring the use of CURIEs for owl, rdf, and rdfs
          ;TODO: check for annotated GCIs
-         gcis (map #(if (and (map? (:object %))
-                             (contains? (:object %) "rdfs:subClassOf"))
-                      (gci/encode-raw-gci-map (:object %))
-                      %) raw-thick-triples)
+         ;gcis (map #(if (and (map? (:object %))
+         ;                    (contains? (:object %) "rdfs:subClassOf"))
+         ;             (gci/encode-raw-gci-map (:object %))
+         ;             %) raw-thick-triples)
          annotations (map #(if (or (= (:predicate %) "owl:Annotation")
                                    (= (:predicate %) "owl:Axiom")
                                    (= (:predicate %) "rdf:Statement"))
                              (ann/encode-raw-annotation-map (:object %)) 
-                             %) gcis)
+                             %) raw-thick-triples)
          sorted (map sort-json annotations)
          normalised (map #(cs/parse-string (cs/generate-string %)) sorted)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
      normalised)))
