@@ -56,7 +56,8 @@
         "Actions:"
         "  init     Create a new LDTab database"
         "  prefix   Define prefixes to shorten IRIs to CURIEs."
-        "  import   Import an RDFXML file into the databse."
+        "  import   Import an RDFXML file into the database."
+        "  export   Export an LDTab database to TTL or TSV."
         ""
         "Please refer to the manual page for more information."]
        (str/join \newline)))
