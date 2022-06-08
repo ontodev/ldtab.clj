@@ -21,41 +21,40 @@
            (contains? predicate-map "owl:maxQualifiedCardinality")
            (contains? predicate-map "owl:cardinality"))))
 
-;TODO: owl:equivalentClass
 (defn is-raw-gci-without-annotation
-  [raw-triple]
+  [raw-triple property]
   (let [object (:object raw-triple)]
       (and (map? object)
-           (contains? object "rdfs:subClassOf")
+           (contains? object property)
            (is-compound-class-expression object)))) 
 
 (defn is-raw-gci-with-annotation
-  [raw-triple]
+  [raw-triple property]
   (let [object (:object raw-triple)]
     (and (map? object)
          (contains? object "owl:annotatedSource")
          (contains? object "owl:annotatedTarget")
          (contains? object "owl:annotatedProperty")
-         (= (:object (first (get object "owl:annotatedProperty"))) "rdfs:subClassOf")
+         (= (:object (first (get object "owl:annotatedProperty"))) property)
          (is-compound-class-expression (:object (first (get object "owl:annotatedSource")))))))
 
 (defn encode-raw-gci-without-annotation
-  [raw-triple];predicate map or triple?
+  [raw-triple property];predicate map or triple?
   (let [object (:object raw-triple)
-        subclass (dissoc object "rdfs:subClassOf")
-        superclass (first (get object "rdfs:subClassOf"));TODO handle longer lists
+        subclass (dissoc object property)
+        superclass (first (get object property));TODO handle longer lists
         datatype (:datatype superclass)
         superclass (:object superclass)]
     {:subject subclass
-     :predicate "rdfs:subClassOf"
+     :predicate property
      :object superclass
      :datatype datatype}))
 
 (defn encode-raw-gci-with-annotation
-  [raw-triple]
+  [raw-triple property]
   (let [object (:object raw-triple)
         source (first (get object "owl:annotatedSource")) 
-        subclass (dissoc (:object source) "rdfs:subClassOf")
+        subclass (dissoc (:object source) property)
         superclass (first (get object "owl:annotatedTarget")) ;done 
         datatype (:datatype superclass)
         superclass (:object superclass)
@@ -69,15 +68,19 @@
         ;TODO datatypes for annotations? (where do we but the 'meta' information?)
         ]
     {:subject subclass
-     :predicate "rdfs:subClassOf"
+     :predicate property
      :object superclass
      :datatype datatype
      :annotation annotation}))
 
 (defn encode-raw-gci-map
   [raw-triple]
-  (cond (is-raw-gci-without-annotation raw-triple)
-        (encode-raw-gci-without-annotation raw-triple)
-        (is-raw-gci-with-annotation raw-triple)
-        (encode-raw-gci-with-annotation raw-triple)
+  (cond (is-raw-gci-without-annotation raw-triple "rdfs:subClassOf")
+        (encode-raw-gci-without-annotation raw-triple "rdfs:subClassOf")
+        (is-raw-gci-without-annotation raw-triple "owl:equivalentClass")
+        (encode-raw-gci-without-annotation raw-triple "owl:equivalentClass")
+        (is-raw-gci-with-annotation raw-triple "rdfs:subClassOf")
+        (encode-raw-gci-with-annotation raw-triple "rdfs:subClassOf") 
+        (is-raw-gci-with-annotation raw-triple "owl:equivalentClass")
+        (encode-raw-gci-with-annotation raw-triple "owl:equivalentClass")
         :else raw-triple))
