@@ -47,3 +47,27 @@
         dependency-triples (map #(map (fn [x] (.asTriple x)) %) subject-with-dependencies)]
    dependency-triples))
 
+(defn group-blank-node-paths-n-triples
+  "Given an RDF graph, group triples w.r.t. bank node paths
+  (a blank node path is a path (s_1,p_1,o_1),...,(s_n,p_n,o_n) where
+ o_i = s_{i+1} are blank nodes for 1 <= i <= n."
+  [input]
+  (let [in (RDFDataMgr/open input)
+        model (.read (ModelFactory/createDefaultModel) in "" "NTRIPLES")
+        root-subjects (get-root-subjects model)
+        subject-with-dependencies (map #(get-blanknode-dependencies % model) root-subjects)
+        dependency-triples (map #(map (fn [x] (.asTriple x)) %) subject-with-dependencies)]
+   dependency-triples))
+
+(defn group-blank-node-paths-turtle
+  "Given an RDF graph, group triples w.r.t. bank node paths
+  (a blank node path is a path (s_1,p_1,o_1),...,(s_n,p_n,o_n) where
+ o_i = s_{i+1} are blank nodes for 1 <= i <= n."
+  [input]
+  (let [in (RDFDataMgr/open input)
+        model (.read (ModelFactory/createDefaultModel) in "" )
+        root-subjects (get-root-subjects model)
+        subject-with-dependencies (map #(get-blanknode-dependencies % model) root-subjects)
+        dependency-triples (map #(map (fn [x] (.asTriple x)) %) subject-with-dependencies)]
+   dependency-triples))
+
