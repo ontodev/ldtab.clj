@@ -102,7 +102,12 @@
         prefix-2-base (get-prefix-map prefixes)
         tt {"object" (parse-json (:object thick-triple))
             "datatype" (:datatype thick-triple) } 
-        subject (translate-iri (:subject thick-triple) prefix-2-base model)
+        ;subject (translate-iri (:subject thick-triple) prefix-2-base model) 
+        ;provisional handling of GCIs (with JSON objects in the position of subject column)
+        subject-json (parse-json (:subject thick-triple))
+        subject (if (string? subject-json)
+                  (translate-iri subject-json prefix-2-base model)
+                  (translate-json subject-json prefix-2-base model))
         predicate (translate-property (:predicate thick-triple) prefix-2-base model)
         object (translate-predicate-map tt prefix-2-base model)]
     (.add model subject predicate object)))
