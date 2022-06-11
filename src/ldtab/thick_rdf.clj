@@ -86,6 +86,47 @@
     "_JSON" (translate-json (get predicateMap "object") prefix-2-base model)
     (translate-literal (get predicateMap "object") (get predicateMap "datatype") prefix-2-base model))) 
 
+(defn translate-annotation
+  [subject predicate object annotation prefix-2-base model]
+  ;(println annotation)
+  (let [bnode (.createResource model)
+        ;rdf-type (get annotation "meta")]
+        rdf-type "owl:Axiom"] ;TODO
+    ;add annotation type 
+    (.add model
+          bnode
+          (.createProperty model (curie-2-uri "rdf:type" prefix-2-base))
+          (.createResource model (curie-2-uri rdf-type prefix-2-base))) 
+
+    ;add subject 
+    (.add model
+          bnode
+          (.createProperty model (curie-2-uri "owl:annotatedSource" prefix-2-base))
+          subject) 
+
+    ;add property 
+    (.add model
+          bnode
+          (.createProperty model (curie-2-uri "owl:annotatedProperty" prefix-2-base))
+          predicate) 
+
+    ;add object 
+    (.add model
+          bnode
+          (.createProperty model (curie-2-uri "owl:annotatedTarget" prefix-2-base))
+          object)
+
+    ;add annotation properties
+    (doseq [k (keys (dissoc annotation "meta"))] 
+      (doseq [x (get annotation k)]
+        (.add model
+              bnode
+              (.createProperty model (curie-2-uri k prefix-2-base))
+              (if (contains? x "annotation")
+                (translate-annotation bnode (curie-2-uri k prefix-2-base) (translate-predicate-map x prefix-2-base model) (get x "annotation") prefix-2-base model)
+                (translate-predicate-map (dissoc x "meta") prefix-2-base model)))) )
+  bnode))
+
 (defn parse-json
   [json]
   (let [success (try 
@@ -94,6 +135,11 @@
     (if success
       (cs/parse-string json)
       json))) 
+
+(defn is-wiring-blanknode
+  [input]
+  (and (string? input)
+       (str/starts-with? input "<wiring:blanknode")))
 
 (defn thick-2-rdf-model
   [thick-triple prefixes]
@@ -109,8 +155,13 @@
                   (translate-iri subject-json prefix-2-base model)
                   (translate-json subject-json prefix-2-base model))
         predicate (translate-property (:predicate thick-triple) prefix-2-base model)
-        object (translate-predicate-map tt prefix-2-base model)]
-    (.add model subject predicate object)))
+        object (translate-predicate-map tt prefix-2-base model)
+        annotation (parse-json (:annotation thick-triple))]
+    (when annotation
+      (translate-annotation subject predicate object annotation prefix-2-base model))
+    (if (is-wiring-blanknode subject-json)
+      model ;remove generated wiring:blank nodes
+      (.add model subject predicate object))))
 
 (defn stanza-2-rdf-model-stream
   [thick-triples prefixes output]
