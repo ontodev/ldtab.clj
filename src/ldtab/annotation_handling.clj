@@ -2,6 +2,8 @@
   (:require [cheshire.core :as cs])
   (:gen-class))
 
+;TODO we are currently not supporting owl:Annotations if the annotated triple isn't asserted 
+
 (defn is-owl-property?
   [property]
   (cond
@@ -28,11 +30,12 @@
   (let [subject (:object (first (get predicate-map "owl:annotatedSource")))
         predicate (:object (first (get predicate-map "owl:annotatedProperty")))
         object (:object (first (get predicate-map "owl:annotatedTarget"))) 
-        datatype (:datatype (first (get predicate-map "owl:annotatedTarget")))
+        datatype (:datatype (first (get predicate-map "owl:annotatedTarget"))) 
+        rdf-type (:object (first (get predicate-map "rdf:type")));can be "owl:Axiom" or "owl:Annotation"
 
         annotation-properties (remove is-owl-property? (keys predicate-map))
         annotation-objects (map #(get predicate-map %) annotation-properties) 
-        annotation-objects (map #(map (fn [x] (assoc x :meta "owl:Annotation")) %) annotation-objects) 
+        annotation-objects (map #(map (fn [x] (assoc x :meta rdf-type)) %) annotation-objects) 
         annotation-map (zipmap annotation-properties annotation-objects)] 
 
     (if (not-empty previous-annotation)
@@ -147,7 +150,7 @@
   (let [owl-annototation (:object (first (get predicate-map "owl:annotatedSource")))
         rdf-reification (:object (first (get predicate-map "rdf:subject")))] 
 
-    (cond owl-annototation (if (map? owl-annototation) ;check for nesting ...
+    (cond owl-annototation (if (map? owl-annototation) ;check for nesting ... (TODO: this doesn't work for GCIs... 
                              ;.. of annotations/reifications
                              (cond (contains? owl-annototation "owl:annotatedSource") 
                                    (encode-raw-annotation-map-recursion predicate-map previous-annotation)
