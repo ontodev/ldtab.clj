@@ -131,7 +131,8 @@
   [json]
   (let [success (try 
                   (cs/parse-string json)
-                  (catch Exception e nil))]
+                  (catch Exception e nil))
+        success (map? success)]
     (if success
       (cs/parse-string json)
       json))) 
