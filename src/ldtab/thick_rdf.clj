@@ -88,10 +88,9 @@
 
 (defn translate-annotation
   [subject predicate object annotation prefix-2-base model]
-  ;(println annotation)
   (let [bnode (.createResource model)
-        ;rdf-type (get annotation "meta")]
-        rdf-type "owl:Axiom"] ;TODO
+        example-key (first (keys annotation))
+        rdf-type (get (first (get annotation example-key)) "meta")]
     ;add annotation type 
     (.add model
           bnode
@@ -117,7 +116,7 @@
           object)
 
     ;add annotation properties
-    (doseq [k (keys (dissoc annotation "meta"))] 
+    (doseq [k (keys (dissoc annotation "meta"))] ;TODO dissoc "meta" shouldn't be necessary
       (doseq [x (get annotation k)]
         (.add model
               bnode
@@ -173,8 +172,6 @@
     (.start writer-stream)
     (StreamRDFOps/sendPrefixesToStream prefix-map writer-stream)
     (doseq [triple thick-triples]
-      ;(println triple)
-      ;(.write (thick-2-rdf-model triple prefixes) System/out)
       (StreamRDFOps/sendTriplesToStream (.getGraph (thick-2-rdf-model triple prefixes)) writer-stream))
     (.finish writer-stream))) 
 

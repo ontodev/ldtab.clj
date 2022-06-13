@@ -1,8 +1,19 @@
 (ns ldtab.gci-handling
-  (:require [cheshire.core :as cs])
+  (:require [cheshire.core :as cs] 
+            [ldtab.annotation-handling :as ann])
   (:gen-class))
 
 ;TODO: make predicate-map keys consistent (either use strings or keys - but not both)
+
+(defn encode-annotation-type
+  [m v]
+  (loop [ks (keys m)
+         res m] 
+    (if (empty? ks)
+      res
+      (recur (rest ks) 
+             (update res (first ks) 
+          #(vec (map (fn [x] (assoc x :meta v)) %)))))))
 
 (defn is-compound-class-expression
   [predicate-map]
@@ -63,9 +74,9 @@
         annotation (dissoc annotation "owl:annotatedTarget")
         rdf-type (:object (first (get annotation "rdf:type")))
         annotation (dissoc annotation "rdf:type")
-        annotation (assoc annotation "meta" rdf-type)
+        annotation (encode-annotation-type annotation rdf-type)
         ;TODO handle recursive annotations
-        ;TODO datatypes for annotations? (where do we but the 'meta' information?)
+        ;ann (ann/encode-raw-annotation-map-base object {})
         ]
     {:subject subclass
      :predicate property
