@@ -1,7 +1,7 @@
 (ns ldtab.export
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.java.io :as io]
-            [ldtab.thick2thin :as thick-2-thin] 
+            [ldtab.thick-rdf :as thick-2-rdf] 
             [clojure.string :as str])
   (:import [java.io FileInputStream] 
            [org.apache.jena.riot RDFDataMgr Lang] 
@@ -55,7 +55,8 @@
        data (jdbc/query db [(str "SELECT * FROM " table)])
        prefix (jdbc/query db [(str "SELECT * FROM prefix")]) 
        output-path (io/as-relative-path output)] 
-    (thick-2-thin/stanza-2-rdf-model-stream data prefix output-path))))
+    (thick-2-rdf/triples-2-rdf-model-stream data prefix output-path))))
+    ;(thick-2-thin/stanza-2-rdf-model-stream data prefix output-path))))
 
 
 

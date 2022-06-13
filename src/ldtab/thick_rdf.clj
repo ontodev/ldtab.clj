@@ -163,7 +163,7 @@
       model ;remove generated wiring:blank nodes
       (.add model subject predicate object))))
 
-(defn stanza-2-rdf-model-stream
+(defn triples-2-rdf-model-stream
   [thick-triples prefixes output]
   (let [out-stream (io/output-stream output)
         model (set-prefix-map (ModelFactory/createDefaultModel) prefixes)
@@ -187,4 +187,4 @@
   (let [db (load-db (first args))
         prefix (jdbc/query db [(str "SELECT * FROM prefix")]) 
         data (jdbc/query db [(str "SELECT * FROM statement")])]
-    (stanza-2-rdf-model-stream data prefix "test-output")))
+    (triples-2-rdf-model-stream data prefix "test-output")))
