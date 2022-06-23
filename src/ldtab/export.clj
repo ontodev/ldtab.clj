@@ -4,6 +4,9 @@
             [ldtab.thick-rdf :as thick-2-rdf] 
             [clojure.string :as str])
   (:import [java.io FileInputStream] 
+           [org.apache.jena.rdf.model Model ModelFactory Resource]
+           [org.apache.jena.riot.system StreamRDFWriter StreamRDFOps]
+           [org.apache.jena.riot RDFDataMgr RDFFormat Lang]
            [org.apache.jena.riot RDFDataMgr Lang] 
            )
   (:gen-class)) 
@@ -57,6 +60,49 @@
        output-path (io/as-relative-path output)] 
     (thick-2-rdf/triples-2-rdf-model-stream data prefix output-path))))
     ;(thick-2-thin/stanza-2-rdf-model-stream data prefix output-path))))
+
+(defn set-prefix-map
+  [model prefixes]
+  (doseq [row prefixes]
+    (.setNsPrefix model (:prefix row) (:base row)))
+  model) 
+
+(defn export-turtle-stream
+ ([db-path output]
+  (export-turtle-stream db-path "statement" output))
+ ([db-path table output]
+  (let [db (load-db db-path)
+       data (jdbc/reducible-query db [(str "SELECT * FROM " table)] {:raw? true})
+       prefixes (jdbc/query db [(str "SELECT * FROM prefix")]) 
+       output-path (io/as-relative-path output)
+       out-stream (io/output-stream output-path) 
+       model (set-prefix-map (ModelFactory/createDefaultModel) prefixes) 
+       prefix-map (.lock model) 
+       writer-stream (StreamRDFWriter/getWriterStream out-stream RDFFormat/TURTLE_BLOCKS)] 
+    (.start writer-stream)
+    (StreamRDFOps/sendPrefixesToStream prefix-map writer-stream)
+
+
+    (reduce (fn [prev {:keys [assertion
+                      retraction
+                      graph
+                      subject
+                      predicate
+                      object
+                      datatype
+                      annotation]}] 
+      (StreamRDFOps/sendTriplesToStream (.getGraph (thick-2-rdf/thick-2-rdf-model {:assertion assertion
+                                                                                   :retraction retraction
+                                                                                   :graph graph
+                                                                                   :subject subject
+                                                                                   :predicate predicate
+                                                                                   :object object
+                                                                                   :datatype datatype
+                                                                                   :annotation annotation } prefixes)) writer-stream)) "" data)
+
+    (.finish writer-stream)
+
+    )))
 
 
 
