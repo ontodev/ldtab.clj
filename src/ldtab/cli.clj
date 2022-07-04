@@ -36,7 +36,8 @@
    ["-t" "--table TABLE" "Table"
     :parse-fn #(identity %)] 
    ["-f" "--format FORMAT" "Output format"
-    :parse-fn #(identity %)]])
+    :parse-fn #(identity %)]
+   ["-s" "--streaming"]])
 
 (defn get-file-extension
   [path]
@@ -227,6 +228,7 @@
   (let [{:keys [options arguments errors summary]} (parse-opts command export-options)
         db (second arguments) 
         output (nth arguments 2)
+        streaming (:streaming options)
         table (:table options)
         extension (get-file-extension output)];TODO: add options for output format
     (cond
@@ -235,13 +237,17 @@
       (export-db/export-tsv db table output)
 
       (and table (= extension "ttl"))
-      (export-db/export-turtle db table output)
+      (if streaming
+        (export-db/export-turtle-stream db table output)
+        (export-db/export-turtle db table output))
       
       (= extension "tsv")
       (export-db/export-tsv db output)
 
       (= extension "ttl")
-      (export-db/export-turtle db output)
+      (if streaming
+        (export-db/export-turtle-stream db output)
+        (export-db/export-turtle db output))
 
       (not (nil? table))
       (export-db/export-tsv db table output)
