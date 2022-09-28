@@ -232,31 +232,24 @@
   (let [{:keys [options arguments errors summary]} (parse-opts command export-options)
         db (second arguments) 
         output (nth arguments 2)
-        streaming (:streaming options)
+        streaming (:streaming options) ;TODO: should we always write with streams?
         table (:table options)
-        extension (get-file-extension output)];TODO: add options for output format
-    (cond
-      ;TODO guess output format based on file extension
-      (and table (= extension "tsv"))
-      (export-db/export-tsv db table output)
+        database-connection (:connection options)
+        extension (get-file-extension output);TODO: add options for output format
 
-      (and table (= extension "ttl"))
-      (if streaming
-        (export-db/export-turtle-stream db table output)
-        (export-db/export-turtle db table output))
-      
-      (= extension "tsv")
-      (export-db/export-tsv db output)
-
-      (= extension "ttl")
-      (if streaming
-        (export-db/export-turtle-stream db output)
-        (export-db/export-turtle db output))
-
-      (not (nil? table))
-      (export-db/export-tsv db table output)
-
-      :else (export-db/export-tsv db output))))
+        ;set defaults
+        table (if table table "statement")
+        db-con (if database-connection
+                 db ;db is connection-uri
+                 (str "jdbc:sqlite:"
+                      (System/getProperty "user.dir")
+                      "/" db)) ;db is database name
+        extension  (if extension
+                     extension
+                     "tsv")]
+    (if streaming 
+      (export-db/export-stream db-con table extension output)
+      (export-db/export db-con table extension output))))
 
 ;TODO handle options for subcommand
 ;TODO validate tsv file

@@ -14,12 +14,6 @@
 ;TODO: export to a file or STDOUT
 ;FORMATS: Turtle, RDFXML, HTML+RDFa, TSV table?
 
-(defn load-db
-  [path]
-  {:classname "org.sqlite.JDBC"
-  :subprotocol "sqlite"
-  :subname path})
-
 (defn triple-2-tsv
   "Given a ThickTriple
    return a string of the triple's values separated by tabs."
@@ -41,9 +35,8 @@
    write ThickTriples in a TSV file to output."
   ([dp-path output]
    (export-tsv dp-path "statement" output))
-  ([db-path table output] 
-  (let [db (load-db db-path)
-        data (jdbc/query db [(str "SELECT * FROM " table)])
+  ([db-connection table output] 
+  (let [data (jdbc/query db-connection [(str "SELECT * FROM " table)])
         output-path (io/as-relative-path output)] 
     (with-open [w (io/writer output-path :append true)] 
       (.write w (str (get-tsv-header data) "\n"))
@@ -51,15 +44,13 @@
         (.write w (str (triple-2-tsv row) "\n")))))))
 
 (defn export-turtle
- ([db-path output]
-  (export-turtle db-path "statement" output))
- ([db-path table output]
-  (let [db (load-db db-path)
-       data (jdbc/query db [(str "SELECT * FROM " table)])
-       prefix (jdbc/query db [(str "SELECT * FROM prefix")]) 
+ ([db-connection output]
+  (export-turtle db-connection "statement" output))
+ ([db-connection table output]
+  (let [data (jdbc/query db-connection [(str "SELECT * FROM " table)])
+       prefix (jdbc/query db-connection [(str "SELECT * FROM prefix")]) 
        output-path (io/as-relative-path output)] 
     (thick-2-rdf/triples-2-rdf-model-stream data prefix output-path))))
-    ;(thick-2-thin/stanza-2-rdf-model-stream data prefix output-path))))
 
 (defn set-prefix-map
   [model prefixes]
@@ -68,12 +59,11 @@
   model) 
 
 (defn export-turtle-stream
- ([db-path output]
-  (export-turtle-stream db-path "statement" output))
- ([db-path table output]
-  (let [db (load-db db-path)
-       data (jdbc/reducible-query db [(str "SELECT * FROM " table)] {:raw? true})
-       prefixes (jdbc/query db [(str "SELECT * FROM prefix")]) 
+ ([db-connection output]
+  (export-turtle-stream db-connection "statement" output))
+ ([db-connection table output]
+  (let [data (jdbc/reducible-query db-connection [(str "SELECT * FROM " table)] {:raw? true})
+       prefixes (jdbc/query db-connection [(str "SELECT * FROM prefix")]) 
        output-path (io/as-relative-path output)
        out-stream (io/output-stream output-path) 
        model (set-prefix-map (ModelFactory/createDefaultModel) prefixes) 
@@ -104,5 +94,20 @@
 
     )))
 
+(defn export 
+  [db-connection table file-format output]
+  (let [db {:connection-uri db-connection}]
+    (cond
+      (= file-format "tsv")
+      (export-tsv db table output)
+      (= file-format "ttl")
+      (export-turtle db table output))))
 
-
+(defn export-stream
+  [db-connection table file-format output]
+  (let [db {:connection-uri db-connection}]
+    (cond 
+      (= file-format "tsv")
+      (throw (Exception. "Streaming otpion for exporting to TSV currently not supported"))
+      (= file-format "ttl")
+      (export-turtle-stream db table output)))) 
