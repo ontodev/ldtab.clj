@@ -198,33 +198,34 @@
   [command]
   (let [{:keys [options arguments errors summary]} (parse-opts command import-options) 
         db (second arguments)
-        database-system (:connection options)] 
-        (if database-system
-          (init-db/initialise-database db);expects a connnection-uri
+        database-connection (:connection options)] 
+        (if database-connection
+          (init-db/initialise-database db);expects a connection-uri
           (init-db/create-sql-database db))));expects the name for the database 
 
 ;TODO handle options for subcommend
 ;TODO add options to use 'streaming' or 'non-streaming' version
 (defn ldtab-import
-  [command]
+  [command] 
   (let [{:keys [options arguments errors summary]} (parse-opts command import-options)
         db (second arguments)
         ontology (nth arguments 2)
         streaming (:streaming options)
         table (:table options)
-        database-system (:connection options)
+        database-connection (:connection options)
 
         ;set defaults
         table (if table table "statement")
-        database-system (if database-system database-system "sqlite")]
+        db-con (if database-connection
+                 db ;db is connection-uri
+                 (str "jdbc:sqlite:"
+                      (System/getProperty "user.dir")
+                      "/" db))] ;db is database name
 
+    ;'streaming' and 'in-memory' are separate implementations
     (if streaming
-      (if table
-        (import-db/import-rdf-stream db table ontology "graph")
-        (import-db/import-rdf-stream db ontology "graph"))
-      (if table
-        (import-db/import-rdf-model db table ontology "graph")
-        (import-db/import-rdf-model db ontology "graph")))));TODO how do we handle the graph input?  
+        (import-db/import-rdf-stream db-con table ontology "graph")
+        (import-db/import-rdf-model db-con table ontology "graph"))))
 
 (defn ldtab-export
   [command]

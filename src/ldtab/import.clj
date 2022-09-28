@@ -10,12 +10,6 @@
            [org.apache.jena.riot RDFDataMgr Lang])
   (:gen-class)) 
 
-(defn load-db
-  [path]
-  {:classname "org.sqlite.JDBC"
-  :subprotocol "sqlite"
-  :subname path})
-
 (defn load-prefixes
   [db]
   (jdbc/query db ["SELECT * FROM prefix"]))
@@ -137,12 +131,11 @@
      :unstated-annotation-backlog updated-unstated-annotation-backlog}))
 
 
-;TODO update streamed approach to work with user-specifid tables
 (defn import-rdf-stream
   ([db-path rdf-path graph]
    (import-rdf-stream db-path "statement" rdf-path graph)) 
-  ([db-path table rdf-path graph]
-  (let [db (load-db db-path)
+  ([db-connection table rdf-path graph]
+  (let [db {:connection-uri db-connection}
         iri2prefix (load-prefixes db)
         is (new FileInputStream rdf-path)
         it (if (= (last (str/split rdf-path #"\.")) "ttl") ;guess input format
@@ -182,10 +175,10 @@
 
 ;TODO: we still cannot represent annotations/reifications that are not also stated
 (defn import-rdf-model
-  ([db-path rdf-path graph]
-   (import-rdf-model db-path "statement" rdf-path graph)) 
-  ([db-path table rdf-path graph]
-  (let [db (load-db db-path)
+  ([database-connection rdf-path graph]
+   (import-rdf-model database-connection "statement" rdf-path graph)) 
+  ([database-connection table rdf-path graph]
+  (let [db {:connection-uri database-connection}
         thin-triples (rdf-model/group-blank-node-paths rdf-path)
         iri2prefix (load-prefixes db)
         thick-triples (map #(thin2thick/thin-2-thick % iri2prefix) thin-triples)
@@ -198,4 +191,14 @@
 (defn -main
   "Currently only used for manual testing."
   [& args] 
-  (time (import-rdf-stream (first args) (second args) "graph")))
+  (let [db {:connection-uri (first args)}
+        thin-triples (rdf-model/group-blank-node-paths (second args))
+        iri2prefix (load-prefixes db)
+        thick-triples (map #(thin2thick/thin-2-thick % iri2prefix) thin-triples)]
+    (doseq [t thick-triples]
+      (println t))
+
+    ))
+
+  ;(time (import-rdf-stream (first args) (second args) "graph")))
+
