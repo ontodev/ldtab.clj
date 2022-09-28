@@ -19,15 +19,21 @@
 ;TODO: implement options for subcommands
 ;TODO write custom help messages for subcommands
 (def init-options
-  [["-h" "--help"]])
+  [["-h" "--help"] 
+   ["-d" "--database SYSTEM" "Connection uri"
+    :parse-fn #(identity %)]])
 
 (def prefix-options
   [["-h" "--help"]
-   ["-l" "--list" "List prefixes"]])
+   ["-l" "--list" "List prefixes"]
+   ["-d" "--database SYSTEM" "Connection uri"
+    :parse-fn #(identity %)]])
 
 (def import-options
   [["-h" "--help"]
    ["-t" "--table TABLE" "Table"
+    :parse-fn #(identity %)]
+   ["-d" "--database SYSTEM" "Connection uri"
     :parse-fn #(identity %)]
    ["-s" "--streaming"]])
 
@@ -36,6 +42,8 @@
    ["-t" "--table TABLE" "Table"
     :parse-fn #(identity %)] 
    ["-f" "--format FORMAT" "Output format"
+    :parse-fn #(identity %)]
+   ["-d" "--database SYSTEM" "Connection uri"
     :parse-fn #(identity %)]
    ["-s" "--streaming"]])
 
@@ -203,7 +211,9 @@
 ;TODO handle options for subcommand
 (defn ldtab-init
   [command]
-  (let [db (second (:arguments (parse-opts command init-options)))]
+  (let [{:keys [options arguments errors summary]} (parse-opts command import-options) 
+        db (second arguments)
+        database-system (:database options)]
    (init-db/create-database db)))
 
 ;TODO handle options for subcommend
@@ -214,14 +224,20 @@
         db (second arguments)
         ontology (nth arguments 2)
         streaming (:streaming options)
-        table (:table options)]
+        table (:table options)
+        database-system (:database options)
+
+        ;set defaults
+        table (if table table "statement")
+        database-system (if database-system database-system "sqlite")]
+
     (if streaming
       (if table
         (import-db/import-rdf-stream db table ontology "graph")
         (import-db/import-rdf-stream db ontology "graph"))
       (if table
         (import-db/import-rdf-model db table ontology "graph")
-        (import-db/import-rdf-model db ontology "graph")))));TODO how do we handle the graph input?
+        (import-db/import-rdf-model db ontology "graph")))));TODO how do we handle the graph input?  
 
 (defn ldtab-export
   [command]
