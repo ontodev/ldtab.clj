@@ -89,9 +89,6 @@
     (not= 2 (count arguments))
     {:exit-message "Invalid input: init requires a single argument."} 
 
-    (.exists (io/as-file (second arguments)))
-    {:exit-message (str "Invalid input: File " (second arguments) " already exists.")} 
-
     :else
     {:action command})))
 
@@ -117,9 +114,6 @@
       (not= 3 (count arguments))
       {:exit-message "Invalid input: prefix requires two arguments."} 
 
-      (not (.exists (io/as-file (second arguments))))
-      {:exit-message "Invalid input: database (first argument) does not exist."} 
-
       (not (.exists (io/as-file (nth arguments 2))))
       {:exit-message "Invalid input: prefix table (second argument) does not exist."} 
 
@@ -140,9 +134,6 @@
     (not= 3 (count arguments))
     {:exit-message "Invalid input: import requires two arguments."} 
 
-    (not (.exists (io/as-file (second arguments))))
-    {:exit-message "Invalid input: database (first argument) does not exist."} 
-
     (not (.exists (io/as-file (nth arguments 2))))
     {:exit-message "Invalid input: ontology (second argument) does not exist."} 
 
@@ -162,9 +153,6 @@
 
     (not= 3 (count arguments))
     {:exit-message "Invalid input: export requires two arguments."} 
-
-    (not (.exists (io/as-file (second arguments))))
-    {:exit-message "Invalid input: database (first argument) does not exist."} 
 
     (.exists (io/as-file (nth arguments 2)))
     {:exit-message "Invalid input: output file (second argument) already exists."} 
