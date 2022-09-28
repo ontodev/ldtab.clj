@@ -204,7 +204,6 @@
           (init-db/create-sql-database db))));expects the name for the database 
 
 ;TODO handle options for subcommend
-;TODO add options to use 'streaming' or 'non-streaming' version
 (defn ldtab-import
   [command] 
   (let [{:keys [options arguments errors summary]} (parse-opts command import-options)
@@ -216,16 +215,16 @@
 
         ;set defaults
         table (if table table "statement")
-        db-con (if database-connection
-                 db ;db is connection-uri
-                 (str "jdbc:sqlite:"
-                      (System/getProperty "user.dir")
-                      "/" db))] ;db is database name
+        db-con-uri (if database-connection
+                     db ;db is connection-uri
+                     (str "jdbc:sqlite:"
+                          (System/getProperty "user.dir")
+                          "/" db))] ;db is database name
 
     ;'streaming' and 'in-memory' are separate implementations
     (if streaming
-        (import-db/import-rdf-stream db-con table ontology "graph")
-        (import-db/import-rdf-model db-con table ontology "graph"))))
+        (import-db/import-rdf-stream db-con-uri table ontology "graph")
+        (import-db/import-rdf-model db-con-uri table ontology "graph"))))
 
 (defn ldtab-export
   [command]
@@ -239,27 +238,36 @@
 
         ;set defaults
         table (if table table "statement")
-        db-con (if database-connection
-                 db ;db is connection-uri
-                 (str "jdbc:sqlite:"
-                      (System/getProperty "user.dir")
-                      "/" db)) ;db is database name
+        db-con-uri (if database-connection
+                     db ;db is connection-uri
+                     (str "jdbc:sqlite:"
+                          (System/getProperty "user.dir")
+                          "/" db)) ;db is database name
         extension  (if extension
                      extension
                      "tsv")]
     (if streaming 
-      (export-db/export-stream db-con table extension output)
-      (export-db/export db-con table extension output))))
+      (export-db/export-stream db-con-uri table extension output)
+      (export-db/export db-con-uri table extension output))))
 
 ;TODO handle options for subcommand
 ;TODO validate tsv file
 ;TODO issue #3 says to print prefixes if second argument is missing
 (defn ldtab-prefix
   [command]
-  (let [arguments (:arguments (parse-opts command import-options))
+  (let [{:keys [options arguments errors summary]} (parse-opts command export-options)
+        ;arguments (:arguments (parse-opts command import-options))
         db (second arguments)
-        tsv (nth arguments 2)]
-    (prefix/insert-prefixes db tsv))) 
+        tsv (nth arguments 2)
+        database-connection (:connection options)
+         
+        ;set defaults
+        db-con-uri (if database-connection
+                     db ;db is connection-uri
+                     (str "jdbc:sqlite:"
+                          (System/getProperty "user.dir")
+                          "/" db))] ;db is database name 
+    (prefix/insert-prefixes db-con-uri tsv))) 
 
 (defn parse-subcommand
   [command]
