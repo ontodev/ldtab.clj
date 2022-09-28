@@ -18,23 +18,21 @@
 
 ;TODO: implement options for subcommands
 ;TODO write custom help messages for subcommands
+
 (def init-options
   [["-h" "--help"] 
-   ["-d" "--database SYSTEM" "Connection uri"
-    :parse-fn #(identity %)]])
+   ["-c" "--connection" "Database connection uri"]])
 
 (def prefix-options
   [["-h" "--help"]
    ["-l" "--list" "List prefixes"]
-   ["-d" "--database SYSTEM" "Connection uri"
-    :parse-fn #(identity %)]])
+   ["-c" "--connection" "Database connection uri"]])
 
 (def import-options
   [["-h" "--help"]
    ["-t" "--table TABLE" "Table"
     :parse-fn #(identity %)]
-   ["-d" "--database SYSTEM" "Connection uri"
-    :parse-fn #(identity %)]
+   ["-c" "--connection" "Database connection uri"]
    ["-s" "--streaming"]])
 
 (def export-options
@@ -43,8 +41,7 @@
     :parse-fn #(identity %)] 
    ["-f" "--format FORMAT" "Output format"
     :parse-fn #(identity %)]
-   ["-d" "--database SYSTEM" "Connection uri"
-    :parse-fn #(identity %)]
+   ["-c" "--connection" "Database connection uri"]
    ["-s" "--streaming"]])
 
 (defn get-file-extension
@@ -201,8 +198,10 @@
   [command]
   (let [{:keys [options arguments errors summary]} (parse-opts command import-options) 
         db (second arguments)
-        database-system (:database options)]
-   (init-db/create-database db)))
+        database-system (:connection options)] 
+        (if database-system
+          (init-db/initialise-database db);expects a connnection-uri
+          (init-db/create-sql-database db))));expects the name for the database 
 
 ;TODO handle options for subcommend
 ;TODO add options to use 'streaming' or 'non-streaming' version
@@ -213,7 +212,7 @@
         ontology (nth arguments 2)
         streaming (:streaming options)
         table (:table options)
-        database-system (:database options)
+        database-system (:connection options)
 
         ;set defaults
         table (if table table "statement")
