@@ -87,6 +87,11 @@
   (let [[thin1 thin2 thin3] thin-backlog
         [thick1 thick2 thick3] thick-backlog
         backlog-triples (flatten (map :triples (vals backlog)))
+        ;NB: 'existential blank nodes', i.e., blank nodes appearing as objects
+        ;that cannot be replaced by a nested JSON structure are not associated with any triples.
+        ;So, backlog-triples will contain nil values for these blank nodes.
+        ;These nil values need to be removed before translating RDF triples to LDTab ThickTriples
+        backlog-triples (remove nil? backlog-triples) 
         backlog-json (thin2thick/thin-2-thick backlog-triples iri2prefix)]
 
     (when backlog-json (insert-triples backlog-json db table transaction graph))
