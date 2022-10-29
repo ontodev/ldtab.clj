@@ -9,6 +9,19 @@
 
 (declare node-2-thick-map)
 
+(defn is-wiring-blanknode
+  [input]
+  (and (string? input)
+       (str/starts-with? input "<wiring:blanknode")))
+
+(defn hash-existential-subject-blanknode
+  [triple]
+  (if (is-wiring-blanknode (:subject triple))
+    (assoc triple
+           :subject
+           (str  "<wiring:blanknode:" (hash (:object triple)) ">"))
+    triple))
+
 ;TODO: add support for user input prefixes (using prefix table)
 (defn curify
   [s]
@@ -251,7 +264,8 @@
                               (ann/encode-raw-annotation-map (:object %)) 
                               %) gcis)
         sorted (map sort-json annotations)
-        normalised (map #(cs/parse-string (cs/generate-string %)) sorted)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
+        hashed (map hash-existential-subject-blanknode sorted) 
+        normalised (map #(cs/parse-string (cs/generate-string %)) hashed)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
     normalised))
   ([triples iri2prefix]
    (let [raw-thick-triples (thin-2-thick-raw triples iri2prefix)
@@ -264,5 +278,6 @@
                              (ann/encode-raw-annotation-map (:object %)) 
                              %) gcis)
          sorted (map sort-json annotations)
-         normalised (map #(cs/parse-string (cs/generate-string %)) sorted)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
+         hashed (map hash-existential-subject-blanknode sorted) 
+         normalised (map #(cs/parse-string (cs/generate-string %)) hashed)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
      normalised)))
