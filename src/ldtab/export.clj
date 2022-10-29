@@ -14,11 +14,19 @@
 ;TODO: export to a file or STDOUT
 ;FORMATS: Turtle, RDFXML, HTML+RDFa, TSV table?
 
+(defn encode-new-line
+  [x]
+  (str/replace x #"\r\n|\n|\r" "\\n"))
+
 (defn triple-2-tsv
   "Given a ThickTriple
    return a string of the triple's values separated by tabs."
   [triple]
-   (str/join "\t" (vals triple)))
+  (let [vs (vals triple)
+        ;vs (map #(str/escape (str %) char-escape-string) vs) 
+        vs (map #(str/escape (str %) {\newline "\\n"}) vs) 
+        tsv (str/join "\t" vs)]
+    tsv)) 
 
 (defn get-tsv-header
   "Given a list of maps,
