@@ -2,11 +2,13 @@
   (:require [clojure.set :as set]
             [ldtab.thin2thick :as t2t])
   (:import [java.io FileInputStream] 
+           [org.apache.jena.graph Triple Node] 
+           [java.util Iterator] 
            [org.apache.jena.riot RDFDataMgr Lang])) 
 
 (defn thin-triple?
   "Given a JENA triple, return true if the triple has no blank node dependencies."
-  [triple]
+  [^Triple triple]
   (let [s (.getSubject triple)
         o (.getObject triple)]
     (and (not (.isBlank s))
@@ -20,7 +22,7 @@
 (defn get-triples
   "Given a stream of triples and a natural number n,
     return the next n triples from the stream."
-  [it n]
+  [^Iterator it ^long n]
    (loop [x 0
           triples '()]
      (if (and (.hasNext it)
@@ -30,7 +32,7 @@
 
 (defn fetch-new-window
   "Given a stream of RDF triples, extract the next."
-  [it windowsize]
+  [^Iterator it ^long windowsize]
   (let [new-triples (get-triples it windowsize) ;extract windowsize many new triples
         thin-triples (filter thin-triple? new-triples)
         thick-triples (remove thin-triple? new-triples)]
@@ -39,11 +41,11 @@
 (defn get-blanknode-dependency
   "Given a subject and a (direct) map from subjects to blank node dependencies,
   return the transitive closure of blank node dependencies for the subject."
-  [subject subject-2-blanknode]
+  [^Node subject subject-2-blanknode]
   (let [direct (get subject-2-blanknode subject)
         ;TODO: this does not need to be recomputed recursively
         ;this map could be build up in a bottom-up fasion (however, this shouldn't speed things up too drastically)
-        indirect (flatten (map #(get-blanknode-dependency % subject-2-blanknode) direct))]
+        indirect (flatten (map (fn [^Node x] (get-blanknode-dependency x subject-2-blanknode)) direct))]
     (into () (remove nil? (set/union direct indirect))))) 
 
 ;TODO write proper doc string 
@@ -64,19 +66,19 @@
   "Given a subject and a backlog map,
     return true if all blank node dependencies are resolved,
     and false otherwise."
-  [subject backlog-map]
+  [^Node subject backlog-map]
   (let [dependencies (get-in backlog-map [subject :dependencies])]
     (cond 
       (not dependencies) false
       (empty? dependencies) true
-      :else (every? #(is-resolved? % backlog-map) dependencies))))
+      :else (every? (fn [^Node x] (is-resolved? x backlog-map)) dependencies))))
 
 (defn updated?
-  [subject backlog-map]
+  [^Node subject backlog-map]
   (let [dependencies (get-in backlog-map [subject :dependencies])]
     (if (get-in backlog-map [subject :updated])
       true
-      (some #(updated? % backlog-map) dependencies)))) ;NB: this can return nil
+      (some (fn [^Node x] (updated? x backlog-map)) dependencies)))) ;NB: this can return nil
 
 (defn build-backlog-map
   "Given a list of JENA triples,
@@ -99,11 +101,11 @@
                 :resolved true/fase
                 :triples ([subjectn pn1 on1], [subjectn pn2 on2], ...)}"
   [triples]
-  (let [subject-map (group-by #(.getSubject %) triples) 
-        subject-2-object (map-on-hash-map-vals (fn [x] (map (fn [y] (.getObject y)) x)) subject-map)
-        subject-2-blanknode (map-on-hash-map-vals (fn [x] (filter (fn [y] (.isBlank y)) x)) subject-2-object)
-        subjects (map #(.getSubject %) triples)
-        dependency-map (map #(get-blanknode-dependency % subject-2-blanknode) subjects)
+  (let [subject-map (group-by (fn [^Triple x] (.getSubject x)) triples) 
+        subject-2-object (map-on-hash-map-vals (fn [x] (map (fn [^Triple y] (.getObject y)) x)) subject-map)
+        subject-2-blanknode (map-on-hash-map-vals (fn [x] (filter (fn [^Node y] (.isBlank y)) x)) subject-2-object)
+        subjects (map (fn [^Triple x] (.getSubject x)) triples)
+        dependency-map (map (fn [^Node x] (get-blanknode-dependency x subject-2-blanknode)) subjects)
         base (zipmap subjects dependency-map)
         dependencies (map-on-hash-map-vals #(assoc {} :dependencies %) base)
         ;assumption: when a backlog is created, the subject is assumed to be 'updated' 
@@ -215,7 +217,7 @@
     resolved)) 
 
 (defn parse-window
-  [it windowsize backlog]
+  [^Iterator it ^long windowsize backlog]
   (if (empty? backlog)
     (let [new-triples (get-triples it windowsize)
           thin-triples (filter thin-triple? new-triples)
@@ -244,8 +246,8 @@
   "Currently only used for manual testing."
   [& args] 
 
-  (let [is (new FileInputStream (first args))
-        it (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")
+  (let [^FileInputStream is (new FileInputStream (first args))
+        ^Iterator it (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")
         windowsize 500]
     (time (loop [backlog '()]
             (when (.hasNext it) 

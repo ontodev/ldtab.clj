@@ -7,7 +7,9 @@
             [cheshire.core :as cs]
             [ldtab.thin2thick :as thin2thick])
   (:import [java.io FileInputStream] 
-           [org.apache.jena.riot RDFDataMgr Lang])
+           [java.util Iterator] 
+           [org.apache.jena.riot RDFDataMgr Lang]
+           [org.apache.jena.graph Triple])
   (:gen-class)) 
 
 (defn load-prefixes
@@ -132,13 +134,13 @@
 
 
 (defn import-rdf-stream
-  ([db-path rdf-path graph]
+  ([^String db-path ^String rdf-path ^String graph]
    (import-rdf-stream db-path "statement" rdf-path graph)) 
-  ([db-connection table rdf-path graph]
+  ([^String db-connection ^String table ^String rdf-path ^String graph]
   (let [db {:connection-uri db-connection}
         iri2prefix (load-prefixes db)
-        is (new FileInputStream rdf-path)
-        it (if (= (last (str/split rdf-path #"\.")) "ttl") ;guess input format
+        ^FileInputStream is (new FileInputStream rdf-path)
+        ^Iterator it (if (= (last (str/split rdf-path #"\.")) "ttl") ;guess input format
              (RDFDataMgr/createIteratorTriples is Lang/TTL "base")
              (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")) ;use RDFXML by default
         windowsize 500]
@@ -175,13 +177,13 @@
 
 ;TODO: we still cannot represent annotations/reifications that are not also stated
 (defn import-rdf-model
-  ([database-connection rdf-path graph]
+  ([database-connection ^String rdf-path ^String graph]
    (import-rdf-model database-connection "statement" rdf-path graph)) 
-  ([database-connection table rdf-path graph]
+  ([database-connection ^String table ^String rdf-path ^String graph]
   (let [db {:connection-uri database-connection}
         thin-triples (rdf-model/group-blank-node-paths rdf-path)
         iri2prefix (load-prefixes db)
-        thick-triples (map #(thin2thick/thin-2-thick % iri2prefix) thin-triples)
+        thick-triples (map (fn [^Triple x] (thin2thick/thin-2-thick x iri2prefix)) thin-triples)
         thick-triples (apply concat thick-triples)
         annotation-triples (filter #(contains? % "annotation") thick-triples)
         superfluous (set (map #(dissoc % "annotation") annotation-triples))
