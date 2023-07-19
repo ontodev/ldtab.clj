@@ -19,11 +19,12 @@
 
 (defn curify-with
   [uri iri2prefix]
-  (let [found (first (filter #(str/starts-with? uri (:base %)) iri2prefix))]
+  (let [matches (filter #(str/starts-with? uri (:base %)) iri2prefix)
+        sorted (sort-by #(count (:base %)) matches) ;sort by length
+        found (last sorted)] ;get longest match
     (if found
       (str/replace uri (:base found) (str (:prefix found) ":"))
       (str "<" uri ">"))))
-
 
 (defn map-on-hash-map-vals
   "Given a hashmap m and a function f, 
