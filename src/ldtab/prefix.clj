@@ -3,13 +3,13 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.java.jdbc :as jdbc])
-  (:gen-class)) 
+  (:gen-class))
 
 (defn parse-tsv
   [input]
   (with-open [reader (io/reader input)]
-  (doall
-    (csv/read-csv reader :separator \tab)))) 
+    (doall
+     (csv/read-csv reader :separator \tab))))
 
 (defn insert-prefix
   [db prefix base]
@@ -25,13 +25,13 @@
   [db-connection-uri]
   (let [prefixes (query-prefixes db-connection-uri)
         prefix-strings (map #(str (:prefix %) "," (:base %) "\n") prefixes)
-        prefix-string (str/join prefix-strings)] 
-    (str "Prefixes in " db-connection-uri ":\n\n" prefix-string))) 
+        prefix-string (str/join prefix-strings)]
+    (str "Prefixes in " db-connection-uri ":\n\n" prefix-string)))
 
 (defn insert-prefixes
   "Add prefixes from a TSV file to an SQLite database."
- [db-connection-uri prefixes-path]
- (let [db {:connection-uri db-connection-uri}
-       prefixes (rest (parse-tsv prefixes-path))];rest: drop header "prefix base"
-   (doseq [p prefixes] 
-     (insert-prefix db (first p) (second p)))))
+  [db-connection-uri prefixes-path]
+  (let [db {:connection-uri db-connection-uri}
+        prefixes (rest (parse-tsv prefixes-path))];rest: drop header "prefix base"
+    (doseq [p prefixes]
+      (insert-prefix db (first p) (second p)))))

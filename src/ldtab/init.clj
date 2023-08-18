@@ -12,7 +12,7 @@
                                                  [:base "TEXT" "NOT NULL"]])
 
         statement-table-ddl (jdbc/create-table-ddl :statement
-                                                   [[:assertion :int "NOT NULL"] 
+                                                   [[:assertion :int "NOT NULL"]
                                                     [:retraction :int "NOT NULL DEFAULT 0"]
                                                     [:graph "TEXT" "NOT NULL"]
                                                     [:subject "TEXT" "NOT NULL"]
@@ -33,14 +33,14 @@
 (defn initialise-database
   [connection]
   (let [db-spec {:connection-uri connection}]
-    (setup db-spec))) 
+    (setup db-spec)))
 
 (defn create-sql-database
   "Creates an SQLite file with three tables:
   1. 'ldtab' with columns: [key, value],
   2. 'prefix' with columns: [prefix, base],
-  3. 'statement' with columns: [assertion, retraction, graph, subject, predicate, object, datatype, annotation]." 
-  [dbname] 
+  3. 'statement' with columns: [assertion, retraction, graph, subject, predicate, object, datatype, annotation]."
+  [dbname]
   (let [db-spec {:dbtype "sqlite"
                  :dbname (str dbname)
                  :user "myaccount"

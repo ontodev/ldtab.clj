@@ -26,10 +26,10 @@
 ;TODO: add support for user input prefixes (using prefix table)
 (defn curify
   [^String s]
-  (let [owl (str/replace s #"http://www.w3.org/2002/07/owl#" "owl:") 
-        rdf (str/replace owl #"http://www.w3.org/1999/02/22-rdf-syntax-ns#" "rdf:") 
+  (let [owl (str/replace s #"http://www.w3.org/2002/07/owl#" "owl:")
+        rdf (str/replace owl #"http://www.w3.org/1999/02/22-rdf-syntax-ns#" "rdf:")
         rdfs (str/replace rdf #"http://www.w3.org/2000/01/rdf-schema#" "rdfs:")]
-    rdfs)) 
+    rdfs))
 
 (defn curify-with
   [^String uri iri2prefix]
@@ -38,7 +38,6 @@
       (str/replace uri (:base found) (str (:prefix found) ":"))
       (str "<" uri ">"))))
 
-
 (defn map-on-hash-map-vals
   "Given a hashmap m and a function f, 
   apply f to all values of m.
@@ -46,13 +45,13 @@
   Given m = {:a 1, :b 2}  and f = (fn [x] (inc x)),
   then (map-on-hash-map-vals f m) = {:a 2, :b 3}"
   [f m]
-  (zipmap (keys m) (map f (vals m)))) 
+  (zipmap (keys m) (map f (vals m))))
 
 (defn map-on-hash-map-keys
   "Given a hashmap m and a function f, 
   apply f to all keys of m."
   [f m]
-  (zipmap (map f (keys m)) (vals m))) 
+  (zipmap (map f (keys m)) (vals m)))
 
 (defn is-rdf-type?
   [^String string]
@@ -67,7 +66,7 @@
     (cond
       (= number-of-types 0) (NodeFactory/createURI "unknown")
       (= number-of-types 1) (.getObject ^Triple (first typing-triples))
-      :else (NodeFactory/createURI "ambiguous")))) 
+      :else (NodeFactory/createURI "ambiguous"))))
 
 ;TODO handling of 'existential blank nodes' appearing as objects
 ;TODO rename to 'skolemise-existential-blank-nodes'
@@ -108,27 +107,27 @@
         ;we need to add the triple [_b:leaf rdf:type wiring:blanknode]
         ;so that we collapse the blank node into it's skolem form
 
-        additions (map (fn [^Node x] (new Triple (NodeFactory/createURI (str "wiring:blanknode:" (gensym))) 
+        additions (map (fn [^Node x] (new Triple (NodeFactory/createURI (str "wiring:blanknode:" (gensym)))
                                     ;(NodeFactory/createURI "wiring:blanknode") 
-                                    (get-type (get subject-to-triples x)) 
-                                    x)) blank-roots)] 
+                                          (get-type (get subject-to-triples x))
+                                          x)) blank-roots)]
 
     (concat triples additions)))
 
-(defn get-datatype 
+(defn get-datatype
   ([^Node node]
-  (cond 
-    (.isBlank node) "_JSON"
-    (.isURI node) "_IRI"
+   (cond
+     (.isBlank node) "_JSON"
+     (.isURI node) "_IRI"
     ;NB: Jena can't identify plain literals
-    (.isLiteral node) (let [datatype (.getLiteralDatatypeURI node)
-                            language (.getLiteralLanguage node)]
-                        (if-not (= language "")
-                          (str "@" language)
-                          datatype))
-    :else "ERROR"))
+     (.isLiteral node) (let [datatype (.getLiteralDatatypeURI node)
+                             language (.getLiteralLanguage node)]
+                         (if-not (= language "")
+                           (str "@" language)
+                           datatype))
+     :else "ERROR"))
   ([^Node node iri2prefix]
-   (cond 
+   (cond
      (.isBlank node) "_JSON"
      (.isURI node) "_IRI"
      ;NB: Jena can't identify plain literals
@@ -139,16 +138,15 @@
                            datatype))
      :else "ERROR")))
 
-
 (defn encode-object
   "Given a triple t = [s p o] and a map from subject nodes to its triples,
-  returns predicate map for the o" 
+  returns predicate map for the o"
   ([^Triple triple subject-2-thin-triples]
-  (hash-map :object (node-2-thick-map (.getObject triple) subject-2-thin-triples),
-            :datatype (get-datatype (.getObject triple))))
-([^Triple triple subject-2-thin-triples iri2prefix]
-  (hash-map :object (node-2-thick-map (.getObject triple) subject-2-thin-triples iri2prefix),
-            :datatype (get-datatype (.getObject triple) iri2prefix))))
+   (hash-map :object (node-2-thick-map (.getObject triple) subject-2-thin-triples),
+             :datatype (get-datatype (.getObject triple))))
+  ([^Triple triple subject-2-thin-triples iri2prefix]
+   (hash-map :object (node-2-thick-map (.getObject triple) subject-2-thin-triples iri2prefix),
+             :datatype (get-datatype (.getObject triple) iri2prefix))))
 
 (defn encode-node
   "Given a Jena Node, return String for 
@@ -156,36 +154,36 @@
   2. Literal Value for Literals"
   ([^Node node]
    (cond
-     (.isURI node) (curify (.getURI node)) 
+     (.isURI node) (curify (.getURI node))
      (.isLiteral node) (.getLiteralLexicalForm node)
      :else "ERROR"))
   ([^Node node iri2prefix]
    (cond
-     (.isURI node) (curify-with (.getURI node) iri2prefix) 
+     (.isURI node) (curify-with (.getURI node) iri2prefix)
      (.isLiteral node) (.getLiteralLexicalForm node)
      :else "ERROR")))
 
 (defn node-2-thick-map
   "Given a node and a map from subject nodes to its triples,
   returns a predicate map if its a blank node
-  and itself otherwise" 
+  and itself otherwise"
   ([^Node node subject-2-thin-triples]
    (if (.isBlank node)
      (let [triples (get subject-2-thin-triples node)
            predicates (group-by (fn [^Triple x] (.getPredicate x)) triples)
-           predicates (map-on-hash-map-keys encode-node predicates)] 
+           predicates (map-on-hash-map-keys encode-node predicates)]
        (map-on-hash-map-vals ;encode objects recursively
-                             #(vec (map (fn [^Triple x] (encode-object x subject-2-thin-triples)) %))
-                             predicates)) 
+        #(vec (map (fn [^Triple x] (encode-object x subject-2-thin-triples)) %))
+        predicates))
      (encode-node node)))
   ([^Node node subject-2-thin-triples iri2prefix]
    (if (.isBlank node)
      (let [triples (get subject-2-thin-triples node)
            predicates (group-by (fn [^Triple x] (.getPredicate x)) triples)
-           predicates (map-on-hash-map-keys #(encode-node % iri2prefix) predicates)] 
+           predicates (map-on-hash-map-keys #(encode-node % iri2prefix) predicates)]
        (map-on-hash-map-vals ;encode objects recursively
-                             #(vec (map (fn [^Triple x] (encode-object x subject-2-thin-triples iri2prefix)) %))
-                             predicates)) 
+        #(vec (map (fn [^Triple x] (encode-object x subject-2-thin-triples iri2prefix)) %))
+        predicates))
      (encode-node node iri2prefix))))
 
 (defn root-triples
@@ -205,69 +203,68 @@
 (defn sort-json
   "Given a JSON value, return a lexicographically ordered representation."
   [m]
-    (cond
-      (map? m) (into (sorted-map) (map-on-hash-map-vals sort-json m)) ;sort by key
-      (coll? m) (vec (map cs/parse-string ;sort by string comparison
-                              (sort (map #(cs/generate-string (sort-json %))
-                                         m))))
-      :else m))
+  (cond
+    (map? m) (into (sorted-map) (map-on-hash-map-vals sort-json m)) ;sort by key
+    (coll? m) (vec (map cs/parse-string ;sort by string comparison
+                        (sort (map #(cs/generate-string (sort-json %))
+                                   m))))
+    :else m))
 
 (defn map-subject-2-thin-triples
   "Given a set of thin triples,
     return a map from subjects to thin triples."
   [thin-triples]
-  (group-by (fn [^Triple x] (.getSubject x)) thin-triples)) 
-
+  (group-by (fn [^Triple x] (.getSubject x)) thin-triples))
 
 (defn thin-2-thick-triple-raw
   "Given a root thin triple t (see function root-triples) and a map from subjects to thin triples in an RDF graph G,
     return the (raw) thick triple of t in G."
   ([^Triple triple subject-2-thin-triples]
-  (let [s (.getSubject triple)
-        p (.getPredicate triple)
-        o (.getObject triple) 
-        subject (node-2-thick-map s subject-2-thin-triples)
-        predicate (node-2-thick-map p subject-2-thin-triples)
-        object (node-2-thick-map o subject-2-thin-triples)]
-    {:subject subject, :predicate predicate, :object object, :datatype (get-datatype o)}))
+   (let [s (.getSubject triple)
+         p (.getPredicate triple)
+         o (.getObject triple)
+         subject (node-2-thick-map s subject-2-thin-triples)
+         predicate (node-2-thick-map p subject-2-thin-triples)
+         object (node-2-thick-map o subject-2-thin-triples)]
+     {:subject subject, :predicate predicate, :object object, :datatype (get-datatype o)}))
   ([^Triple triple subject-2-thin-triples iri2prefix]
    (let [s (.getSubject triple)
          p (.getPredicate triple)
-         o (.getObject triple) 
+         o (.getObject triple)
          subject (node-2-thick-map s subject-2-thin-triples iri2prefix)
          predicate (node-2-thick-map p subject-2-thin-triples iri2prefix)
          object (node-2-thick-map o subject-2-thin-triples iri2prefix)]
      {:subject subject, :predicate predicate, :object object, :datatype (get-datatype o iri2prefix)})))
 
 (defn thin-2-thick-raw
-   "Given a set of thin triples, collapse blank nodes into RDF Thick Triples (with datatypes)."
+  "Given a set of thin triples, collapse blank nodes into RDF Thick Triples (with datatypes)."
   ([triples]
-   (let [blank-node-encoding (encode-blank-nodes triples) 
+   (let [blank-node-encoding (encode-blank-nodes triples)
          subject-2-thin-triples (map-subject-2-thin-triples blank-node-encoding)
-         root-triples (root-triples blank-node-encoding) 
+         root-triples (root-triples blank-node-encoding)
          thick-triples (map (fn [^Triple x] (thin-2-thick-triple-raw x subject-2-thin-triples)) root-triples)]
      thick-triples))
   ([triples iri2prefix]
-   (let [blank-node-encoding (encode-blank-nodes triples) 
+   (let [blank-node-encoding (encode-blank-nodes triples)
          subject-2-thin-triples (map-subject-2-thin-triples blank-node-encoding)
-         root-triples (root-triples blank-node-encoding) 
+         root-triples (root-triples blank-node-encoding)
          thick-triples (map (fn [^Triple x] (thin-2-thick-triple-raw x subject-2-thin-triples iri2prefix)) root-triples)]
      thick-triples)))
 
 (defn thin-2-thick
   ([triples]
-  (let [raw-thick-triples (thin-2-thick-raw triples)
+   (let [raw-thick-triples (thin-2-thick-raw triples)
         ;TODO I am requiring the use of CURIEs for owl, rdf, and rdfs
          gcis (map gci/encode-raw-gci-map raw-thick-triples)
-        annotations (map #(if (or (= (:predicate %) "owl:Annotation")
-                                    (= (:predicate %) "owl:Axiom");NOTE: this states a triple
-                                    (= (:predicate %) "rdf:Statement"))
-                              (ann/encode-raw-annotation-map (:object %)) 
-                              %) gcis)
-        sorted (map sort-json annotations)
-        hashed (map hash-existential-subject-blanknode sorted) 
-        normalised (map #(cs/parse-string (cs/generate-string %)) hashed)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
-    normalised))
+         annotations (map #(if (or (= (:predicate %) "owl:Annotation")
+                                   (= (:predicate %) "owl:Axiom");NOTE: this states a triple
+                                   (= (:predicate %) "rdf:Statement"))
+                             (ann/encode-raw-annotation-map (:object %))
+                             %) gcis)
+         sorted (map sort-json annotations)
+         hashed (map hash-existential-subject-blanknode sorted)
+         normalised (map #(cs/parse-string (cs/generate-string %)) hashed)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
+     normalised))
   ([triples iri2prefix]
    (let [raw-thick-triples (thin-2-thick-raw triples iri2prefix)
          ;TODO I am requiring the use of CURIEs for owl, rdf, and rdfs
@@ -276,9 +273,9 @@
          annotations (map #(if (or (= (:predicate %) "owl:Annotation")
                                    (= (:predicate %) "owl:Axiom")
                                    (= (:predicate %) "rdf:Statement"))
-                             (ann/encode-raw-annotation-map (:object %)) 
+                             (ann/encode-raw-annotation-map (:object %))
                              %) gcis)
          sorted (map sort-json annotations)
-         hashed (map hash-existential-subject-blanknode sorted) 
+         hashed (map hash-existential-subject-blanknode sorted)
          normalised (map #(cs/parse-string (cs/generate-string %)) hashed)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
      normalised)))

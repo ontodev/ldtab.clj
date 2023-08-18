@@ -45,8 +45,8 @@
 
 (defn create-jena-typed-literal ^RDFNode
   [literal datatype ^Model model prefix-2-base]
-   (let [uri (curie-2-uri datatype prefix-2-base)]
-     (.createTypedLiteral model literal uri)))
+  (let [uri (curie-2-uri datatype prefix-2-base)]
+    (.createTypedLiteral model literal uri)))
 
 (defn translate-some ^Resource
   [object-map prefix-2-base ^Model model]
@@ -246,7 +246,6 @@
 
     bnode))
 
-
 (defn translate-has-self ^Resource
   [object-map prefix-2-base ^Model model]
   (let [get-object (curry-predicate-map object-map)
@@ -312,7 +311,6 @@
     (contains? object-map :owl:hasSelf) (translate-has-self object-map prefix-2-base model)
     (contains? object-map :owl:hasValue) (translate-has-value object-map prefix-2-base model)
     ;TODO onDataRange (qualifiedCardinliaties)
-
     ))
 
 (defn translate-list ^Resource
@@ -459,7 +457,6 @@
     (.add model bnode inverse-of argument)
     bnode))
 
-
 (defn translate-class ^Resource
   [object-map prefix-2-base ^Model model]
   (cond
@@ -600,7 +597,7 @@
 
 (defn translate-property ^Property
   [object prefix-2-base ^Model model]
-    (.createProperty model (curie-2-uri object prefix-2-base)))
+  (.createProperty model (curie-2-uri object prefix-2-base)))
 
 (defn set-prefix-map ^Model
   [^Model model prefixes]
@@ -621,7 +618,7 @@
 
 (defn translate-literal ^Literal
   [literal datatype-language-tag prefix-2-base ^Model model]
-  (if (str/starts-with? datatype-language-tag "@" )
+  (if (str/starts-with? datatype-language-tag "@")
     (.createLiteral model literal (subs datatype-language-tag 1))
     (.createTypedLiteral model literal (curie-2-uri datatype-language-tag prefix-2-base))))
 
@@ -641,7 +638,6 @@
     (= datatype "_IRI") (.createResource model (curie-2-uri entity prefix-2-base))
     :else (translate-literal entity datatype prefix-2-base model)))
 
-
 (defn add-annotation ^Model
   [^Resource bnode ^Resource subject ^Property predicate object prefix-2-base ^Model model]
   (let [create-property (fn [x] (create-jena-property x model prefix-2-base))
@@ -654,11 +650,10 @@
         ^Property owl-annotated-target (create-property "owl:annotatedTarget")
         ^Property rdf-type (create-property "rdf:type")]
 
-      (.add model bnode rdf-type owl-annotation)
-      (.add model bnode owl-annotated-source subject)
-      (.add model bnode owl-annotated-property (.asResource predicate)) ;need a resource here
-      (.add model bnode owl-annotated-target object)))
-
+    (.add model bnode rdf-type owl-annotation)
+    (.add model bnode owl-annotated-source subject)
+    (.add model bnode owl-annotated-property (.asResource predicate)) ;need a resource here
+    (.add model bnode owl-annotated-target object)))
 
 (defn add-reification ^Model
   [^Resource bnode ^RDFNode subject ^Property predicate object prefix-2-base ^Model model]
@@ -671,10 +666,10 @@
         ^Property rdf-object (create-property "rdf:object")
         ^Property rdf-type (create-property "rdf:type")]
 
-      (.add model bnode rdf-type rdf-statement)
-      (.add model bnode rdf-subject subject)
-      (.add model bnode rdf-predicate (.asResource predicate)) ;need a resource here
-      (.add model bnode rdf-object object)))
+    (.add model bnode rdf-type rdf-statement)
+    (.add model bnode rdf-subject subject)
+    (.add model bnode rdf-predicate (.asResource predicate)) ;need a resource here
+    (.add model bnode rdf-object object)))
 
 (defn translate-annotation ^Model
   [annotation subject predicate object prefix-2-base ^Model model]
@@ -704,6 +699,7 @@
 ;owl:hasKey
 ;owl:AllDisjointProperties
 ;owl:propertyChainAxiom ?
+
 
 (defn thick-2-rdf-model ^Model
   [thick-triple prefixes]
@@ -749,8 +745,8 @@
 (defn load-db
   [path]
   {:classname "org.sqlite.JDBC"
-  :subprotocol "sqlite"
-  :subname path})
+   :subprotocol "sqlite"
+   :subname path})
 
 ;TODO Jena only supports full URI's?
 (defn -main

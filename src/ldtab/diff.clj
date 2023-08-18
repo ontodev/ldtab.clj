@@ -1,4 +1,4 @@
-(ns ldtab.diff 
+(ns ldtab.diff
   (:require [clojure.string :as str]
             [clojure.java.jdbc :as jdbc]
             [clojure.java.io :as io])
@@ -18,11 +18,11 @@
 (defn get-diff
   [f1 f2]
   (let [s1 (sort (distinct f1))
-        s2 (sort (distinct f2)) ] ;NB: duplicates in the input is not good
+        s2 (sort (distinct f2))] ;NB: duplicates in the input is not good
     (loop [old_version s1
            new_version s2
            added '()
-          deleted '()] 
+           deleted '()]
       (let [old_element (first old_version)
             new_element (first new_version)]
         (cond
@@ -81,7 +81,7 @@
 
 (defn diff-to-file
   [f1 f2 output]
-  (let [transaction (get-time) 
+  (let [transaction (get-time)
         diff (get-diff f1 f2)
         added (first diff)
         deleted (second diff)
@@ -89,7 +89,7 @@
         added (map #(set-transaction-id % transaction) added)
         deleted (map #(set-transaction-id % transaction) deleted)
         deleted (map #(set-retraction % "1") deleted)
-        diff-tsv (concat added deleted)] 
+        diff-tsv (concat added deleted)]
     (write-list diff-tsv output)))
 
 (defn triple-2-tsv
@@ -97,9 +97,9 @@
    return a string of the triple's values separated by tabs."
   [triple]
   (let [vs (vals triple)
-        vs (map #(str/escape (str %) {\newline "\\n"}) vs) 
+        vs (map #(str/escape (str %) {\newline "\\n"}) vs)
         tsv (str/join "\t" vs)]
-    tsv)) 
+    tsv))
 
 (defn get-tsv
   [db-connection]
@@ -111,7 +111,7 @@
   [a b]
   (if (< (compare (Integer/parseInt a) (Integer/parseInt b)) 0)
     a
-    b)) 
+    b))
 
 (defn get-max-transaction-tsv
   [tsv]
@@ -125,52 +125,53 @@
         vs (first (vals (first query)))]
     vs))
 
-
 (defn update-state
   [state triple]
   (let [t (assoc triple :retraction "0")
         t (assoc t :assertion "1")
         t (triple-2-tsv t)]
-  (if (= (:retraction triple) 1)
-    (disj state t)
-    (conj state t))))
+    (if (= (:retraction triple) 1)
+      (disj state t)
+      (conj state t))))
 
 (defn build-helper
   [db-connection id state]
   (let [triples (jdbc/query db-connection [(str "SELECT * FROM statement WHERE assertion='" id "'")])]
     (loop [ts triples
-           res state] 
+           res state]
       (if (empty? ts)
         res
         (recur (rest ts)
-               (update-state res (first ts))))))) 
+               (update-state res (first ts)))))))
 
 
 ;NB: this returns a set of tsv triples
+
+
 (defn build-to-transaction
   [db-connection transaction];or DB?
   (let [transaction_ids (jdbc/query db-connection [(str "SELECT DISTINCT assertion FROM statement")])
         transaction_ids_i (map :assertion transaction_ids)
         transaction_ids (sort transaction_ids_i)
-        transaction_ids (filter #(<= (compare % transaction) 0) transaction_ids)] 
+        transaction_ids (filter #(<= (compare % transaction) 0) transaction_ids)]
     (loop  [ids transaction_ids
             res #{}]
       (if (empty? ids)
         res
-        (recur (rest ids) 
-               (build-helper db-connection 
+        (recur (rest ids)
+               (build-helper db-connection
                              (first ids)
-                             res)))))) 
+                             res))))))
 
 (defn diff-to-db
-  [db-path tsv-path] 
+  [db-path tsv-path]
   (let [db-connection (str "jdbc:sqlite:"
-                          (System/getProperty "user.dir")
-                          "/" db-path)
+                           (System/getProperty "user.dir")
+                           "/" db-path)
         ;db (get-tsv {:connection-uri db-connection})
         max-transaction (get-max-transaction-db db-connection)
         recent (into () (build-to-transaction db-connection max-transaction))
-        file (get-lines tsv-path) 
+        file (get-lines tsv-path)
         diff (get-diff recent file)]
     diff))
 
@@ -191,8 +192,8 @@
 (defn insert-tsv
   [db-path tsv]
   (let [db-connection (str "jdbc:sqlite:"
-                          (System/getProperty "user.dir")
-                          "/" db-path)
+                           (System/getProperty "user.dir")
+                           "/" db-path)
         db-spec {:connection-uri db-connection}
         split (str/split tsv #"\t")
         split (conj split "") ;avoid out-of bounds exception in case of no annotation
@@ -210,9 +211,9 @@
 (defn update-db
   [db-path tsv-path]
   (let [db-connection (str "jdbc:sqlite:"
-                          (System/getProperty "user.dir")
-                          "/" db-path)
-        db-spec {:connection-uri db-connection} 
+                           (System/getProperty "user.dir")
+                           "/" db-path)
+        db-spec {:connection-uri db-connection}
         diff (diff-to-db db-path tsv-path)
         transaction_id (get-time)
         additions (map #(set-transaction-id % transaction_id) (first diff))
@@ -226,5 +227,5 @@
 ;given database + new tsv -> add diff to database
 (defn -main
   "Currently only used for manual testing."
-  [& args] 
-    (update-db (first args) (second args)))
+  [& args]
+  (update-db (first args) (second args)))

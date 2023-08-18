@@ -1,7 +1,7 @@
 (ns ldtab.thin2thick-test
-  (:require [clojure.test :refer :all] 
+  (:require [clojure.test :refer :all]
             [cheshire.core :as cs]
-            [ldtab.thin2thick :as t2t ])) 
+            [ldtab.thin2thick :as t2t]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;Check that thick-triples can be compared as strings;;;
@@ -16,7 +16,7 @@
              \"rdf:type\":[{\"datatype\":\"_IRI\",\"object\":\"owl:Restriction\"}]}"
 
         json1 (cs/parse-string s1 true)
-        json2 (cs/parse-string s2 true) 
+        json2 (cs/parse-string s2 true)
 
         ss1 (str json1)
         ss2 (str json2)]
@@ -39,7 +39,6 @@
         ss2 (str sort2)]
     (is ss1 ss2)))
 
-
 (deftest array-order-is-different-after-parsing
   (let [s1 "{\"obo:IAO_0010000\":[{\"datatype\":\"_IRI\",\"meta\":\"owl:Axiom\",\"object\":\"obo:bfo/axiom/033-001\"},
                     {\"datatype\":\"_IRI\",\"meta\":\"owl:Axiom\",\"object\":\"obo:bfo/axiom/033-002\"},
@@ -49,7 +48,7 @@
                     {\"datatype\":\"_IRI\",\"meta\":\"owl:Axiom\",\"object\":\"obo:bfo/axiom/033-002\"}]}"
 
         json1 (cs/parse-string s1 true)
-        json2 (cs/parse-string s2 true)] 
+        json2 (cs/parse-string s2 true)]
     (is (not= json1 json2))))
 
 (deftest array-order-is-the-same-after-sorting
@@ -65,9 +64,9 @@
 
         sort1 (t2t/sort-json json1)
         sort2 (t2t/sort-json json2)
-        
+
         ss1 (str sort1)
-        ss2 (str sort2)] 
+        ss2 (str sort2)]
     (is ss1 ss2)))
 
 (deftest array-order-and-key-order-is-the-same-after-sorting
@@ -98,7 +97,7 @@
 
         sort1 (t2t/sort-json json1)
         sort2 (t2t/sort-json json2)
-        
+
         ss1 (str sort1)
-        ss2 (str sort2)] 
+        ss2 (str sort2)]
     (is ss1 ss2)))
