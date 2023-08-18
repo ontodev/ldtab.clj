@@ -1,5 +1,5 @@
 (ns ldtab.gci-handling
-  (:require [cheshire.core :as cs] 
+  (:require [cheshire.core :as cs]
             [ldtab.annotation-handling :as ann])
   (:gen-class))
 
@@ -8,12 +8,12 @@
 (defn encode-annotation-type
   [m v]
   (loop [ks (keys m)
-         res m] 
+         res m]
     (if (empty? ks)
       res
-      (recur (rest ks) 
-             (update res (first ks) 
-          #(vec (map (fn [x] (assoc x :meta v)) %)))))))
+      (recur (rest ks)
+             (update res (first ks)
+                     #(vec (map (fn [x] (assoc x :meta v)) %)))))))
 
 (defn is-compound-class-expression
   [predicate-map]
@@ -35,9 +35,9 @@
 (defn is-raw-gci-without-annotation
   [raw-triple property]
   (let [object (:object raw-triple)]
-      (and (map? object)
-           (contains? object property)
-           (is-compound-class-expression object)))) 
+    (and (map? object)
+         (contains? object property)
+         (is-compound-class-expression object))))
 
 (defn is-raw-gci-with-annotation
   [raw-triple property]
@@ -64,7 +64,7 @@
 (defn encode-raw-gci-with-annotation
   [raw-triple property]
   (let [object (:object raw-triple)
-        source (first (get object "owl:annotatedSource")) 
+        source (first (get object "owl:annotatedSource"))
         subclass (dissoc (:object source) property)
         superclass (first (get object "owl:annotatedTarget")) ;done 
         datatype (:datatype superclass)
@@ -91,7 +91,7 @@
         (is-raw-gci-without-annotation raw-triple "owl:equivalentClass")
         (encode-raw-gci-without-annotation raw-triple "owl:equivalentClass")
         (is-raw-gci-with-annotation raw-triple "rdfs:subClassOf")
-        (encode-raw-gci-with-annotation raw-triple "rdfs:subClassOf") 
+        (encode-raw-gci-with-annotation raw-triple "rdfs:subClassOf")
         (is-raw-gci-with-annotation raw-triple "owl:equivalentClass")
         (encode-raw-gci-with-annotation raw-triple "owl:equivalentClass")
         :else raw-triple))

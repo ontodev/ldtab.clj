@@ -8,7 +8,8 @@
                  [org.clojure/data.csv "1.0.0"] 
                  [org.clojure/tools.cli "1.0.206"]
                  [cheshire "5.10.0"]
-                 [org.xerial/sqlite-jdbc "3.36.0"]
+                 [org.xerial/sqlite-jdbc "3.36.0"];SQLite driver
+                 [org.postgresql/postgresql "42.5.0"];PostgresSQL driver
                  [org.apache.jena/jena-core "4.4.0"]
                  [org.apache.jena/jena-arq "4.4.0"]
                  [org.apache.jena/jena-iri "4.4.0"]]
@@ -16,5 +17,6 @@
             [lein-kibit "0.1.8"]] 
   :main ^:skip-aot ldtab.cli
   :target-path "target/%s"
+  :global-vars {*warn-on-reflection* true}
   :profiles {:uberjar {:aot :all
                        :jvm-opts ["-Dclojure.compiler.direct-linking=true"]}})

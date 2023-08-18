@@ -18,25 +18,30 @@
 
 ;TODO: implement options for subcommands
 ;TODO write custom help messages for subcommands
+
 (def init-options
-  [["-h" "--help"]])
+  [["-h" "--help"]
+   ["-c" "--connection" "Database connection uri"]])
 
 (def prefix-options
   [["-h" "--help"]
-   ["-l" "--list" "List prefixes"]])
+   ["-l" "--list" "List prefixes"]
+   ["-c" "--connection" "Database connection uri"]])
 
 (def import-options
   [["-h" "--help"]
    ["-t" "--table TABLE" "Table"
     :parse-fn #(identity %)]
+   ["-c" "--connection" "Database connection uri"]
    ["-s" "--streaming"]])
 
 (def export-options
   [["-h" "--help"]
    ["-t" "--table TABLE" "Table"
-    :parse-fn #(identity %)] 
+    :parse-fn #(identity %)]
    ["-f" "--format FORMAT" "Output format"
     :parse-fn #(identity %)]
+   ["-c" "--connection" "Database connection uri"]
    ["-s" "--streaming"]])
 
 (defn get-file-extension
@@ -71,101 +76,89 @@
   "Validate command line arguments for the `init` subcommand."
   [command]
   (let [{:keys [options arguments errors summary]} (parse-opts command init-options)]
-  (cond 
-    (:help options) 
-    {:exit-message (usage summary) :ok? true}
+    (cond
+      (:help options)
+      {:exit-message (usage summary) :ok? true}
 
-    errors 
-    {:exit-message (error-msg errors)}
+      errors
+      {:exit-message (error-msg errors)}
 
-    (not= 2 (count arguments))
-    {:exit-message "Invalid input: init requires a single argument."} 
+      (not= 2 (count arguments))
+      {:exit-message "Invalid input: init requires a single argument."}
 
-    (.exists (io/as-file (second arguments)))
-    {:exit-message (str "Invalid input: File " (second arguments) " already exists.")} 
-
-    :else
-    {:action command})))
+      :else
+      {:action command})))
 
 (defn validate-prefix
   "Validate command line arguments for the `prefix` subcommand."
   [command]
   (let [{:keys [options arguments errors summary]} (parse-opts command prefix-options)]
     (cond
-      (:help options) 
+      (:help options)
       {:exit-message (usage summary) :ok? true}
 
-      (and (:list options) 
+      (and (:list options)
            (not= 2 (count arguments)))
       {:exit-message "Invalid input: prefix --list requires a single argument"}
 
-      (and (:list options) 
+      (and (:list options)
            (= 2 (count arguments)))
       {:exit-message (prefix/get-prefixes-as-string (second arguments)) :ok? true}
 
-      errors 
+      errors
       {:exit-message (error-msg errors)}
 
       (not= 3 (count arguments))
-      {:exit-message "Invalid input: prefix requires two arguments."} 
-
-      (not (.exists (io/as-file (second arguments))))
-      {:exit-message "Invalid input: database (first argument) does not exist."} 
+      {:exit-message "Invalid input: prefix requires two arguments."}
 
       (not (.exists (io/as-file (nth arguments 2))))
-      {:exit-message "Invalid input: prefix table (second argument) does not exist."} 
+      {:exit-message "Invalid input: prefix table (second argument) does not exist."}
 
-      :else 
+      :else
       {:action command})))
 
-(defn validate-import 
+(defn validate-import
   "Validate command line arguments for the `import` subcommand."
   [command]
   (let [{:keys [options arguments errors summary]} (parse-opts command import-options)]
-  (cond
-    (:help options) 
-    {:exit-message (usage summary) :ok? true}
+    (cond
+      (:help options)
+      {:exit-message (usage summary) :ok? true}
 
-    errors 
-    {:exit-message (error-msg errors)}
+      errors
+      {:exit-message (error-msg errors)}
 
-    (not= 3 (count arguments))
-    {:exit-message "Invalid input: import requires two arguments."} 
+      (not= 3 (count arguments))
+      {:exit-message "Invalid input: import requires two arguments."}
 
-    (not (.exists (io/as-file (second arguments))))
-    {:exit-message "Invalid input: database (first argument) does not exist."} 
+      (not (.exists (io/as-file (nth arguments 2))))
+      {:exit-message "Invalid input: ontology (second argument) does not exist."}
 
-    (not (.exists (io/as-file (nth arguments 2))))
-    {:exit-message "Invalid input: ontology (second argument) does not exist."} 
+      :else
+      {:action command})))
 
-    :else
-    {:action command})))
-
-(defn validate-export 
+(defn validate-export
   "Validate command line arguments for the `export` subcommand."
   [command]
   (let [{:keys [options arguments errors summary]} (parse-opts command export-options)]
-  (cond
-    (:help options) 
-    {:exit-message (usage summary) :ok? true}
+    (cond
+      (:help options)
+      {:exit-message (usage summary) :ok? true}
 
-    errors 
-    {:exit-message (error-msg errors)}
+      errors
+      {:exit-message (error-msg errors)}
 
-    (not= 3 (count arguments))
-    {:exit-message "Invalid input: export requires two arguments."} 
+      (not= 3 (count arguments))
+      {:exit-message "Invalid input: export requires two arguments."}
 
-    (not (.exists (io/as-file (second arguments))))
-    {:exit-message "Invalid input: database (first argument) does not exist."} 
+      (.exists (io/as-file (nth arguments 2)))
+      {:exit-message "Invalid input: output file (second argument) already exists."}
 
-    (.exists (io/as-file (nth arguments 2)))
-    {:exit-message "Invalid input: output file (second argument) already exists."} 
+      (not (contains? #{"ttl" "tsv"} (get-file-extension (nth arguments 2))))
+      {:exit-message (str "Invalid output format: " (get-file-extension (nth arguments 2)))}
 
-    (not (contains? #{"ttl" "tsv"} (get-file-extension (nth arguments 2))))
-    {:exit-message (str "Invalid output format: " (get-file-extension (nth arguments 2)))} 
-
-    :else
-    {:action command})))
+      :else
+      {:action command})))
 
 (defn validate-args
   "Validate command line arguments. Either return a map indicating the program
@@ -174,10 +167,10 @@
   [args]
   (let [{:keys [options arguments errors summary]} (parse-opts args cli-options :in-order true)]
     (cond
-      (:help options) 
+      (:help options)
       {:exit-message (usage summary) :ok? true}
 
-      errors 
+      errors
       {:exit-message (error-msg errors)}
 
       (= "init" (first arguments))
@@ -192,77 +185,91 @@
       (= "export" (first arguments))
       (assoc (validate-export arguments) :options options)
 
-      :else 
+      :else
       {:exit-message (usage summary)})))
 
 (defn exit [status msg]
   (println msg)
-  (System/exit status)) 
+  (System/exit status))
 
 
 ;TODO handle options for subcommand
+
+
 (defn ldtab-init
   [command]
-  (let [db (second (:arguments (parse-opts command init-options)))]
-   (init-db/create-database db)))
+  (let [{:keys [options arguments errors summary]} (parse-opts command import-options)
+        db (second arguments)
+        database-connection (:connection options)]
+    (if database-connection
+      (init-db/initialise-database db);expects a connection-uri
+      (init-db/create-sql-database db))));expects the name for the database 
 
 ;TODO handle options for subcommend
-;TODO add options to use 'streaming' or 'non-streaming' version
 (defn ldtab-import
   [command]
   (let [{:keys [options arguments errors summary]} (parse-opts command import-options)
         db (second arguments)
         ontology (nth arguments 2)
         streaming (:streaming options)
-        table (:table options)]
+        table (:table options)
+        database-connection (:connection options)
+
+        ;set defaults
+        table (if table table "statement")
+        db-con-uri (if database-connection
+                     db ;db is connection-uri
+                     (str "jdbc:sqlite:"
+                          (System/getProperty "user.dir")
+                          "/" db))] ;db is database name
+
+    ;'streaming' and 'in-memory' are separate implementations
     (if streaming
-      (if table
-        (import-db/import-rdf-stream db table ontology "graph")
-        (import-db/import-rdf-stream db ontology "graph"))
-      (if table
-        (import-db/import-rdf-model db table ontology "graph")
-        (import-db/import-rdf-model db ontology "graph")))));TODO how do we handle the graph input?
+      (import-db/import-rdf-stream db-con-uri table ontology "graph")
+      (import-db/import-rdf-model db-con-uri table ontology "graph"))))
 
 (defn ldtab-export
   [command]
   (let [{:keys [options arguments errors summary]} (parse-opts command export-options)
-        db (second arguments) 
+        db (second arguments)
         output (nth arguments 2)
-        streaming (:streaming options)
+        streaming (:streaming options) ;TODO: should we always write with streams?
         table (:table options)
-        extension (get-file-extension output)];TODO: add options for output format
-    (cond
-      ;TODO guess output format based on file extension
-      (and table (= extension "tsv"))
-      (export-db/export-tsv db table output)
+        database-connection (:connection options)
+        extension (get-file-extension output);TODO: add options for output format
 
-      (and table (= extension "ttl"))
-      (if streaming
-        (export-db/export-turtle-stream db table output)
-        (export-db/export-turtle db table output))
-      
-      (= extension "tsv")
-      (export-db/export-tsv db output)
-
-      (= extension "ttl")
-      (if streaming
-        (export-db/export-turtle-stream db output)
-        (export-db/export-turtle db output))
-
-      (not (nil? table))
-      (export-db/export-tsv db table output)
-
-      :else (export-db/export-tsv db output))))
+        ;set defaults
+        table (if table table "statement")
+        db-con-uri (if database-connection
+                     db ;db is connection-uri
+                     (str "jdbc:sqlite:"
+                          (System/getProperty "user.dir")
+                          "/" db)) ;db is database name
+        extension  (if extension
+                     extension
+                     "tsv")]
+    (if streaming
+      (export-db/export-stream db-con-uri table extension output)
+      (export-db/export db-con-uri table extension output))))
 
 ;TODO handle options for subcommand
 ;TODO validate tsv file
 ;TODO issue #3 says to print prefixes if second argument is missing
 (defn ldtab-prefix
   [command]
-  (let [arguments (:arguments (parse-opts command import-options))
+  (let [{:keys [options arguments errors summary]} (parse-opts command export-options)
+        ;arguments (:arguments (parse-opts command import-options))
         db (second arguments)
-        tsv (nth arguments 2)]
-    (prefix/insert-prefixes db tsv))) 
+        tsv (nth arguments 2)
+        database-connection (:connection options)
+
+        ;set defaults
+        db-con-uri (if database-connection
+                     db ;db is connection-uri
+                     (str "jdbc:sqlite:"
+                          (System/getProperty "user.dir")
+                          "/" db))] ;db is database name 
+    (prefix/insert-prefixes db-con-uri tsv)))
 
 (defn parse-subcommand
   [command]
