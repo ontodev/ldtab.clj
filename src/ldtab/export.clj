@@ -8,6 +8,7 @@
            [org.apache.jena.riot.system StreamRDFWriter StreamRDFOps]
            [org.apache.jena.riot RDFDataMgr RDFFormat Lang]
            [org.apache.jena.riot RDFDataMgr Lang] 
+           [org.apache.jena.shared PrefixMapping]
            )
   (:gen-class)) 
 
@@ -60,10 +61,10 @@
        output-path (io/as-relative-path output)] 
     (thick-2-rdf/triples-2-rdf-model-stream data prefix output-path))))
 
-(defn set-prefix-map
-  [model prefixes]
+(defn set-prefix-map ^Model
+  [^Model model prefixes]
   (doseq [row prefixes]
-    (.setNsPrefix model (:prefix row) (:base row)))
+    (.setNsPrefix model ^String (:prefix row) ^String (:base row)))
   model) 
 
 (defn export-turtle-stream

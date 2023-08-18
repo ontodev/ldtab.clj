@@ -4,18 +4,18 @@
             [clojure.java.io :as io]
             [cheshire.core :as cs])
   (:import [org.apache.jena.graph NodeFactory Triple]
-           [org.apache.jena.rdf.model Model ModelFactory Resource]
+           [org.apache.jena.rdf.model Literal Model ModelFactory Property Resource]
            [org.apache.jena.riot RDFDataMgr RDFFormat Lang]
            [org.apache.jena.riot.system StreamRDFWriter StreamRDFOps]
            [org.apache.jena.graph NodeFactory])
   (:gen-class))
 
-(declare translate-predicate-map)
+(declare ^Resource translate-predicate-map)
 
-(defn set-prefix-map
-  [model prefixes]
+(defn set-prefix-map ^Model
+  [^Model model prefixes]
   (doseq [row prefixes]
-    (.setNsPrefix model (:prefix row) (:base row)))
+    (.setNsPrefix model ^String (:prefix row) ^String (:base row)))
   model) 
 
 (defn get-prefix-map
@@ -29,7 +29,7 @@
                     (:prefix (first ps))
                     (:base (first ps))))))) 
 
-(defn curie-2-uri
+(defn curie-2-uri ^String
   [curie prefix-2-base]
   (let [split (str/split curie #":")
         prefix (first split)
@@ -42,34 +42,29 @@
         (subs curie 1 (- (count curie) 1));remove enclosing < >
         curie))))
 
-(defn translate-iri
-  [iri prefix-2-base model]
+(defn translate-iri ^Resource
+  [iri prefix-2-base ^Model model]
   (let [uri (curie-2-uri iri prefix-2-base)]
     (.createResource model uri))) 
 
-(defn translate-property
-  [property prefix-2-base model]
+(defn translate-property ^Property
+  [property prefix-2-base ^Model model]
   (let [uri (curie-2-uri property prefix-2-base)]
     (.createProperty model uri))) 
 
-(defn translate-literal
-  [literal datatype-language-tag prefix-2-base model]
+(defn translate-literal ^Literal
+  [^String literal ^String datatype-language-tag prefix-2-base ^Model model]
   (if (str/starts-with? datatype-language-tag "@" )
     (.createLiteral model literal (subs datatype-language-tag 1))
     (.createTypedLiteral model literal (curie-2-uri datatype-language-tag prefix-2-base))))
 
-(defn translate-typed-literal
-  [literal datatype prefix-2-base model]
+(defn translate-typed-literal ^Literal
+  [literal datatype prefix-2-base ^Model model]
    (let [uri (curie-2-uri datatype prefix-2-base)]
      (.createTypedLiteral model literal uri)))
 
-
-(defn encode-triple
-  [subject property object model]
-    (.add model subject property object))
-
-(defn translate-json
-  [json prefix-2-base model] 
+(defn translate-json ^Resource
+  [json prefix-2-base ^Model model] 
   (let [bnode (.createResource model)]
     (doseq [k (keys json)] 
       (doseq [x (get json k)]
@@ -79,15 +74,15 @@
               (translate-predicate-map x prefix-2-base model))))
       bnode))
 
-(defn translate-predicate-map
-  [predicateMap prefix-2-base model]
+(defn translate-predicate-map ^Resource
+  [predicateMap prefix-2-base ^Model model]
   (case (get predicateMap "datatype") 
     "_IRI" (translate-iri (get predicateMap "object") prefix-2-base model)
     "_JSON" (translate-json (get predicateMap "object") prefix-2-base model)
     (translate-literal (get predicateMap "object") (get predicateMap "datatype") prefix-2-base model))) 
 
-(defn translate-annotation
-  [subject predicate object annotation prefix-2-base model]
+(defn translate-annotation ^Resource
+  [^Resource subject predicate ^Resource object annotation prefix-2-base ^Model model]
   (let [bnode (.createResource model)
         example-key (first (keys annotation))
         rdf-type (get (first (get annotation example-key)) "meta")]
@@ -141,7 +136,7 @@
   (and (string? input)
        (str/starts-with? input "<wiring:blanknode")))
 
-(defn thick-2-rdf-model
+(defn thick-2-rdf-model ^Model
   [thick-triple prefixes]
   (let [;{:keys [assertion retraction graph s p o datatype annotation]} thick-triple 
         model (set-prefix-map (ModelFactory/createDefaultModel) prefixes)

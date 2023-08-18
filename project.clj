@@ -17,5 +17,6 @@
             [lein-kibit "0.1.8"]] 
   :main ^:skip-aot ldtab.cli
   :target-path "target/%s"
+  :global-vars {*warn-on-reflection* true}
   :profiles {:uberjar {:aot :all
                        :jvm-opts ["-Dclojure.compiler.direct-linking=true"]}})
