@@ -23,8 +23,8 @@
    return a string of the triple's values separated by tabs."
   [triple]
   (let [vs (vals triple)
-        ;vs (map #(str/escape (str %) char-escape-string) vs) 
         vs (map #(str/escape (str %) {\newline "\\n"}) vs)
+        vs (map #(str/escape (str %) {\tab "\\t"}) vs)
         tsv (str/join "\t" vs)]
     tsv))
 
