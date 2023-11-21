@@ -1,8 +1,20 @@
 (ns ldtab.init
   (:require [clojure.java.jdbc :as jdbc]))
 
+(defn get-ldtab-statment-schema
+  "Returns the schema of the ldtab database."
+  []
+  [[:assertion :int "NOT NULL"]
+   [:retraction :int "NOT NULL DEFAULT 0"]
+   [:graph "TEXT" "NOT NULL"]
+   [:subject "TEXT" "NOT NULL"]
+   [:predicate "TEXT" "NOT NULL"]
+   [:object "TEXT" "NOT NULL"]
+   [:datatype "TEXT" "NOT NULL"]
+   [:annotation "TEXT"]])
+
 (defn setup
-  [db-spec]
+  [db-spec table]
   (let [metadata-table-ddl (jdbc/create-table-ddl :ldtab
                                                   [[:key "TEXT" "PRIMARY KEY"]
                                                    [:value "TEXT"]])
@@ -11,15 +23,8 @@
                                                 [[:prefix "TEXT" "PRIMARY KEY"]
                                                  [:base "TEXT" "NOT NULL"]])
 
-        statement-table-ddl (jdbc/create-table-ddl :statement
-                                                   [[:assertion :int "NOT NULL"]
-                                                    [:retraction :int "NOT NULL DEFAULT 0"]
-                                                    [:graph "TEXT" "NOT NULL"]
-                                                    [:subject "TEXT" "NOT NULL"]
-                                                    [:predicate "TEXT" "NOT NULL"]
-                                                    [:object "TEXT" "NOT NULL"]
-                                                    [:datatype "TEXT" "NOT NULL"]
-                                                    [:annotation "TEXT"]])]
+        statement-table-ddl (jdbc/create-table-ddl (keyword table)
+                                                   (get-ldtab-statment-schema))]
 
     ;add tables to database
     (jdbc/db-do-commands db-spec metadata-table-ddl)
@@ -31,18 +36,27 @@
 
 ;example: {:connection-uri "jdbc:postgresql://127.0.0.1:5432/kdb?user=knocean&password=knocean"} 
 (defn initialise-database
-  [connection]
+  [connection table]
   (let [db-spec {:connection-uri connection}]
-    (setup db-spec)))
+    (setup db-spec table)))
 
 (defn create-sql-database
   "Creates an SQLite file with three tables:
   1. 'ldtab' with columns: [key, value],
   2. 'prefix' with columns: [prefix, base],
   3. 'statement' with columns: [assertion, retraction, graph, subject, predicate, object, datatype, annotation]."
-  [dbname]
+  [dbname table]
   (let [db-spec {:dbtype "sqlite"
                  :dbname (str dbname)
                  :user "myaccount"
                  :password "secret"}]
-    (setup db-spec)))
+    (setup db-spec table)))
+
+(defn add-table
+  [dbname table]
+  (let [db-spec {:dbtype "sqlite"
+                 :dbname (str dbname)
+                 :user "myaccount"
+                 :password "secret"}]
+    (jdbc/db-do-commands db-spec (jdbc/create-table-ddl (keyword table)
+                                                        (get-ldtab-statment-schema)))))
