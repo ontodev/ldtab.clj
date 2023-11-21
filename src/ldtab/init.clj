@@ -1,7 +1,7 @@
 (ns ldtab.init
   (:require [clojure.java.jdbc :as jdbc]))
 
-(defn get-ldtab-statment-schema
+(defn get-ldtab-statement-schema
   "Returns the schema of the ldtab database."
   []
   [[:assertion :int "NOT NULL"]
@@ -24,7 +24,7 @@
                                                  [:base "TEXT" "NOT NULL"]])
 
         statement-table-ddl (jdbc/create-table-ddl (keyword table)
-                                                   (get-ldtab-statment-schema))]
+                                                   (get-ldtab-statement-schema))]
 
     ;add tables to database
     (jdbc/db-do-commands db-spec metadata-table-ddl)
@@ -59,4 +59,4 @@
                  :user "myaccount"
                  :password "secret"}]
     (jdbc/db-do-commands db-spec (jdbc/create-table-ddl (keyword table)
-                                                        (get-ldtab-statment-schema)))))
+                                                        (get-ldtab-statement-schema)))))
