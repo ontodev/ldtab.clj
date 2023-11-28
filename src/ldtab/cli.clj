@@ -68,6 +68,59 @@
         "Please refer to the manual page for more information."]
        (str/join \newline)))
 
+(defn init-usage []
+  (->> ["ldtab-init"
+        ""
+        "Create a new LDTab database."
+        ""
+        "Usage: ldtab init [options] database"
+        ""
+        "Options:"
+        (str/join \newline (map #(str "  " (first %) "\t" (second %)) init-options))
+        ""
+        "Please refer to the manual page for more information."]
+       (str/join \newline)))
+
+;help message for prefix subcommand
+(defn prefix-usage []
+  (->> ["ldtab-prefix"
+        ""
+        "Define prefixes to shorten IRIs to CURIEs."
+        ""
+        "Usage: ldtab prefix [options] database [tsv]"
+        ""
+        "Options:"
+        (str/join \newline (map #(str "  " (first %) "\t" (second %) (if (= (count %) 3) (str "\t" (nth % 2)) "")) prefix-options))
+        ""
+        "Please refer to the manual page for more information."]
+       (str/join \newline)))
+
+(defn import-usage []
+  (->> ["ldtab-import"
+        ""
+        "Import an RDFXML file into the database."
+        ""
+        "Usage: ldtab import [options] database ontology"
+        ""
+        "Options:"
+        (str/join \newline (map #(str "  " (first %) "\t" (second %) (if (= (count %) 3) (str "\t" (nth % 2)) "")) import-options))
+        ""
+        "Please refer to the manual page for more information."]
+       (str/join \newline)))
+
+(defn export-usage []
+  (->> ["ldtab-export"
+        ""
+        "Export an LDTab database to TTL or TSV."
+        ""
+        "Usage: ldtab export [options] database output"
+        ""
+        "Options:"
+        (str/join \newline (map #(str "  " (first %) "\t" (second %) (if (= (count %) 3) (str "\t" (nth % 2)) "")) export-options))
+        ""
+        "Please refer to the manual page for more information."]
+       (str/join \newline)))
+
 (defn error-msg [errors]
   (str "The following errors occurred while parsing your command:\n\n"
        (str/join \newline errors)))
@@ -78,7 +131,7 @@
   (let [{:keys [options arguments errors summary]} (parse-opts command init-options)]
     (cond
       (:help options)
-      {:exit-message (usage summary) :ok? true}
+      {:exit-message (init-usage) :ok? true}
 
       errors
       {:exit-message (error-msg errors)}
@@ -95,7 +148,7 @@
   (let [{:keys [options arguments errors summary]} (parse-opts command prefix-options)]
     (cond
       (:help options)
-      {:exit-message (usage summary) :ok? true}
+      {:exit-message (prefix-usage) :ok? true}
 
       (and (:list options)
            (not= 2 (count arguments)))
@@ -123,7 +176,7 @@
   (let [{:keys [options arguments errors summary]} (parse-opts command import-options)]
     (cond
       (:help options)
-      {:exit-message (usage summary) :ok? true}
+      {:exit-message (import-usage) :ok? true}
 
       errors
       {:exit-message (error-msg errors)}
@@ -143,7 +196,7 @@
   (let [{:keys [options arguments errors summary]} (parse-opts command export-options)]
     (cond
       (:help options)
-      {:exit-message (usage summary) :ok? true}
+      {:exit-message (export-usage) :ok? true}
 
       errors
       {:exit-message (error-msg errors)}
@@ -191,9 +244,6 @@
 (defn exit [status msg]
   (println msg)
   (System/exit status))
-
-
-;TODO handle options for subcommand
 
 
 (defn ldtab-init
