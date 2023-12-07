@@ -271,11 +271,10 @@
         db (second arguments)
         ontology (nth arguments 2)
         streaming (:streaming options)
-        table (:table options)
+        table (get options :table "statement")
         database-connection (:connection options)
 
         ;set defaults
-        table (if table table "statement")
         db-con-uri (if database-connection
                      db ;db is connection-uri
                      (str "jdbc:sqlite:"
@@ -293,12 +292,11 @@
         db (second arguments)
         output (nth arguments 2)
         streaming (:streaming options) ;TODO: should we always write with streams?
-        table (:table options)
+        table (get options :table "statement")
         database-connection (:connection options)
         extension (get-file-extension output);TODO: add options for output format
 
         ;set defaults
-        table (if table table "statement")
         db-con-uri (if database-connection
                      db ;db is connection-uri
                      (str "jdbc:sqlite:"
