@@ -21,6 +21,8 @@
 
 (def init-options
   [["-h" "--help"]
+   ["-t" "--table TABLE" "Table"
+    :parse-fn #(identity %)]
    ["-c" "--connection" "Database connection uri"]])
 
 (def prefix-options
@@ -245,15 +247,22 @@
   (println msg)
   (System/exit status))
 
+(defn file-exists?
+  [path]
+  (.exists (io/as-file path)))
 
 (defn ldtab-init
   [command]
   (let [{:keys [options arguments errors summary]} (parse-opts command import-options)
         db (second arguments)
-        database-connection (:connection options)]
+        database-connection (:connection options)
+        table (:table options)
+        table (if table table "statement")]
     (if database-connection
-      (init-db/initialise-database db);expects a connection-uri
-      (init-db/create-sql-database db))));expects the name for the database 
+      (init-db/initialise-database db table);expects a connection-uri
+      (if (file-exists? db)
+        (init-db/add-table db table)
+        (init-db/create-sql-database db table))))) ;expects the name for the database
 
 ;TODO handle options for subcommend
 (defn ldtab-import
@@ -262,11 +271,10 @@
         db (second arguments)
         ontology (nth arguments 2)
         streaming (:streaming options)
-        table (:table options)
+        table (get options :table "statement")
         database-connection (:connection options)
 
         ;set defaults
-        table (if table table "statement")
         db-con-uri (if database-connection
                      db ;db is connection-uri
                      (str "jdbc:sqlite:"
@@ -284,12 +292,11 @@
         db (second arguments)
         output (nth arguments 2)
         streaming (:streaming options) ;TODO: should we always write with streams?
-        table (:table options)
+        table (get options :table "statement")
         database-connection (:connection options)
         extension (get-file-extension output);TODO: add options for output format
 
         ;set defaults
-        table (if table table "statement")
         db-con-uri (if database-connection
                      db ;db is connection-uri
                      (str "jdbc:sqlite:"
