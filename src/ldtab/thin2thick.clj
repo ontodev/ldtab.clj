@@ -2,6 +2,7 @@
   (:require [clojure.set :as set]
             [clojure.string :as str]
             [ldtab.annotation-handling :as ann]
+            [ldtab.rdf-list-handling :as rdf-list]
             [ldtab.gci-handling :as gci]
             [cheshire.core :as cs])
   (:import [org.apache.jena.graph NodeFactory Triple Node])
@@ -119,7 +120,7 @@
 (defn get-datatype
   ([^Node node]
    (cond
-     (.isBlank node) "_JSON"
+     (.isBlank node) "_JSONMAP"
      (.isURI node) "_IRI"
     ;NB: Jena can't identify plain literals
      (.isLiteral node) (let [datatype (.getLiteralDatatypeURI node)
@@ -130,7 +131,7 @@
      :else "ERROR"))
   ([^Node node iri2prefix]
    (cond
-     (.isBlank node) "_JSON"
+     (.isBlank node) "_JSONMAP"
      (.isURI node) "_IRI"
      ;NB: Jena can't identify plain literals
      (.isLiteral node) (let [datatype (curify-with (.getLiteralDatatypeURI node) iri2prefix)
@@ -206,6 +207,9 @@
   "Given a JSON value, return a lexicographically ordered representation."
   [m]
   (cond
+    (and (map? m) 
+         (contains? m :datatype)
+         (= (:datatype m) "_JSONLIST")) (into (sorted-map) {:datatype "_JSONLIST", :object (map sort-json (:object m))})
     (map? m) (into (sorted-map) (map-on-hash-map-vals sort-json m)) ;sort by key
     (coll? m) (vec (map cs/parse-string ;sort by string comparison
                         (sort (map #(cs/generate-string (sort-json %))
@@ -263,7 +267,8 @@
                                    (= (:predicate %) "rdf:Statement"))
                              (ann/encode-raw-annotation-map (:object %))
                              %) gcis)
-         sorted (map sort-json annotations)
+         rdf-lists (map rdf-list/encode-rdf-list annotations)
+         sorted (map sort-json rdf-lists)
          hashed (map hash-existential-subject-blanknode sorted)
          normalised (map #(cs/parse-string (cs/generate-string %)) hashed)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
      normalised))
@@ -277,7 +282,8 @@
                                    (= (:predicate %) "rdf:Statement"))
                              (ann/encode-raw-annotation-map (:object %))
                              %) gcis)
-         sorted (map sort-json annotations)
+         rdf-lists (map rdf-list/encode-rdf-list annotations)
+         sorted (map sort-json rdf-lists)
          hashed (map hash-existential-subject-blanknode sorted)
          normalised (map #(cs/parse-string (cs/generate-string %)) hashed)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
      normalised)))
