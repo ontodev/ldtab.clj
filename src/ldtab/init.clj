@@ -4,14 +4,14 @@
 (defn get-ldtab-statement-schema
   "Returns the schema of the ldtab database."
   []
-  [[:assertion :int "NOT NULL"]
+  [[:assertion :int "NOT NULL DEFAULT 1"]
    [:retraction :int "NOT NULL DEFAULT 0"]
-   [:graph "TEXT" "NOT NULL"]
+   [:graph "TEXT" "NOT NULL DEFAULT graph"]
    [:subject "TEXT" "NOT NULL"]
    [:predicate "TEXT" "NOT NULL"]
    [:object "TEXT" "NOT NULL"]
-   [:datatype "TEXT" "NOT NULL"]
-   [:annotation "TEXT"]])
+   [:datatype "TEXT" "NOT NULL DEFAULT '_IRI'"]
+   [:annotation "TEXT DEFAULT NULL"]])
 
 (defn setup
   [db-spec table]
