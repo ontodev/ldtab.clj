@@ -47,7 +47,6 @@
    (let [data (jdbc/query db-connection [(str "SELECT * FROM " table)])
          header (get-tsv-header data)
          data (map #(triple-2-tsv %) data)
-         data (rest data) ; remove header
          data (if sorting-flag
                 (sort data)
                 data)
@@ -63,7 +62,7 @@
   ([db-connection table sorting-flag output]
    (let [data (if sorting-flag
                 (jdbc/query db-connection [(str "SELECT * FROM " table)]
-                            {:result-set-fn (fn [results] (sort-by triple-2-tsv (rest results)))})
+                            {:result-set-fn (fn [results] (sort-by triple-2-tsv results))})
                 (jdbc/query db-connection [(str "SELECT * FROM " table)]))
 
          prefix (jdbc/query db-connection [(str "SELECT * FROM prefix")])
