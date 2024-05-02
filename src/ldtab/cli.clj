@@ -44,7 +44,8 @@
    ["-f" "--format FORMAT" "Output format"
     :parse-fn #(identity %)]
    ["-c" "--connection" "Database connection uri"]
-   ["-s" "--streaming"]])
+   ["-s" "--streaming"]
+   ["-l" "--sort" "Sort output in lexicographical order"]])
 
 (defn get-file-extension
   [path]
@@ -212,6 +213,9 @@
       (not (contains? #{"ttl" "tsv"} (get-file-extension (nth arguments 2))))
       {:exit-message (str "Invalid output format: " (get-file-extension (nth arguments 2)))}
 
+      (and (:streaming options) (:sort options))
+      {:exit-message "Invalid input: --sort and --streaming are mutually exclusive."}
+
       :else
       {:action command})))
 
@@ -292,6 +296,7 @@
         db (second arguments)
         output (nth arguments 2)
         streaming (:streaming options) ;TODO: should we always write with streams?
+        sorting (:sort options)
         table (get options :table "statement")
         database-connection (:connection options)
         extension (get-file-extension output);TODO: add options for output format
@@ -307,7 +312,7 @@
                      "tsv")]
     (if streaming
       (export-db/export-stream db-con-uri table extension output)
-      (export-db/export db-con-uri table extension output))))
+      (export-db/export db-con-uri table extension sorting output))))
 
 ;TODO handle options for subcommand
 ;TODO validate tsv file
