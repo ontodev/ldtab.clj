@@ -23,11 +23,15 @@ jobs:
           distribution: 'adopt'
           java-version: '17'
 
-      - name: Install Leiningen
-        run: |
-          curl https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein > ~/bin/lein
-          chmod +x ~/bin/lein
-          sudo ln -s ~/bin/lein /usr/local/bin/lein
+      - name: Install clojure tools
+        uses: DeLaGuardo/setup-clojure@12.5
+        with:
+          # Install just one or all simultaneously
+          # The value must indicate a particular version of the tool, or use 'latest'
+          # to always provision the latest version
+          cli: 1.10.1.693              # Clojure CLI based on tools.deps
+          lein: 2.9.1                  # Leiningen
+          cljfmt: 0.10.2               # cljfmt
 
       - name: Cache Leiningen dependencies
         uses: actions/cache@v2
