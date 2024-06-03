@@ -48,7 +48,6 @@ clobber:
 bin/ build/:
 	mkdir -p $@
 
-
 ### Install Dependencies
 
 # Require SQLite
@@ -84,7 +83,8 @@ bin/ldtab: bin/ldtab.jar
 	echo 'java -jar "$$(dirname $$0)/ldtab.jar" "$$@"' >> $@
 	chmod +x $@
 
-### Test
+### Round-trip Test
+# The test ontology was taken from here: https://raw.githubusercontent.com/ontodev/robot/master/robot-core/src/test/resources/axioms.owl
 
 .PHONY: test
 test: tests/prefix/prefix.tsv | bin/ldtab bin/robot build/ $(ontology)
@@ -98,5 +98,3 @@ test: tests/prefix/prefix.tsv | bin/ldtab bin/robot build/ $(ontology)
 	ldtab export $(DB) build/ontology.ttl --format ttl
 	robot convert --input build/ontology.ttl --output build/ontology.owl
 	robot diff --left $(ontology) --right build/ontology.owl
-
-	 
