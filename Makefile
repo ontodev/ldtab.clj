@@ -97,4 +97,5 @@ test: tests/prefix/prefix.tsv | bin/ldtab bin/robot build/ $(ontology)
 	ldtab import $(DB) $(ontology) 
 	ldtab export $(DB) build/ontology.ttl --format ttl
 	robot convert --input build/ontology.ttl --output build/ontology.owl
-	robot diff --left $(ontology) --right build/ontology.owl
+	robot diff --left $(ontology) --right build/ontology.owl \
+	| grep 'Ontologies are identical'
