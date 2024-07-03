@@ -207,14 +207,30 @@
   "Given a JSON value, return a lexicographically ordered representation."
   [m]
   (cond
-    (and (map? m) 
+    ; sort RDF lists
+    (and (map? m)
          (contains? m :datatype)
-         (= (:datatype m) "_JSONLIST")) (into (sorted-map) {:datatype "_JSONLIST", :object (map sort-json (:object m))})
-    (map? m) (into (sorted-map) (map-on-hash-map-vals sort-json m)) ;sort by key
-    (coll? m) (vec (map cs/parse-string ;sort by string comparison
-                        (sort (map #(cs/generate-string (sort-json %))
-                                   m))))
-    :else m))
+         (= (:datatype m) "_JSONLIST"))
+    (let [sorted-list {:datatype "_JSONLIST", :object (map sort-json (:object m))}]
+      (if (contains? m :subject) ; top-level RDF list
+        (into (sorted-map) (merge sorted-list
+                                  {:subject (sort-json (:subject m))
+                                   :predicate (:predicate m)
+                                   :graph (:graph m)
+                                   :assertion (:assertion m)
+                                   :retraction (:retraction m)
+                                   :annotation (:annotation m)}))
+        (into (sorted-map) sorted-list))); nested RDF list
+
+    (map? m)
+    (into (sorted-map) (map-on-hash-map-vals sort-json m)) ; sort by key
+
+    (coll? m)
+    (vec (map cs/parse-string ; sort by string comparison
+              (sort (map #(cs/generate-string (sort-json %)) m))))
+
+    :else
+    m))
 
 (defn map-subject-2-thin-triples
   "Given a set of thin triples,
