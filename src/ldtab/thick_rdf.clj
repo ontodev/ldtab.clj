@@ -63,7 +63,7 @@
   (let [uri (curie-2-uri datatype prefix-2-base)]
     (.createTypedLiteral model literal uri)))
 
-(defn translate-json ^Resource
+(defn translate-json-map ^Resource
   [json prefix-2-base ^Model model]
   (let [bnode (.createResource model)]
     (doseq [k (keys json)]
@@ -74,11 +74,27 @@
               (translate-predicate-map x prefix-2-base model))))
     bnode))
 
+(defn translate-rdf-list ^Resource
+  [json prefix-2-base ^Model model]
+  (let [bnode (.createResource model)
+        rdf-first (.createProperty model (curie-2-uri "rdf:first" prefix-2-base))
+        rdf-rest (.createProperty model (curie-2-uri "rdf:rest" prefix-2-base))
+        rdf-nil (.createResource model (curie-2-uri "rdf:nil" prefix-2-base))
+        rdf-type (.createProperty model (curie-2-uri "rdf:type" prefix-2-base))
+        rdf-first-value (first json)
+        rdf-rest-value (rest json)]
+    (.add model bnode rdf-first (translate-predicate-map rdf-first-value prefix-2-base model))
+    (if (and rdf-rest-value (not (empty? rdf-rest-value)))
+      (.add model bnode rdf-rest (translate-rdf-list rdf-rest-value prefix-2-base model))
+      (.add model bnode rdf-rest rdf-nil))
+    bnode))
+
 (defn translate-predicate-map ^Resource
   [predicateMap prefix-2-base ^Model model]
   (case (get predicateMap "datatype")
     "_IRI" (translate-iri (get predicateMap "object") prefix-2-base model)
-    "_JSON" (translate-json (get predicateMap "object") prefix-2-base model)
+    "_JSONMAP" (translate-json-map (get predicateMap "object") prefix-2-base model)
+    "_JSONLIST" (translate-rdf-list (get predicateMap "object") prefix-2-base model)
     (translate-literal (get predicateMap "object") (get predicateMap "datatype") prefix-2-base model)))
 
 (defn translate-annotation ^Resource
@@ -126,7 +142,9 @@
   (let [success (try
                   (cs/parse-string json)
                   (catch Exception e nil))
-        success (map? success)]
+        success (or (map? success)
+                    (coll? success)
+                    (seq? success))]
     (if success
       (cs/parse-string json)
       json)))
@@ -148,7 +166,7 @@
         subject-json (parse-json (:subject thick-triple))
         subject (if (string? subject-json)
                   (translate-iri subject-json prefix-2-base model)
-                  (translate-json subject-json prefix-2-base model))
+                  (translate-json-map subject-json prefix-2-base model))
         predicate (translate-property (:predicate thick-triple) prefix-2-base model)
         object (translate-predicate-map tt prefix-2-base model)
         annotation (parse-json (:annotation thick-triple))]
