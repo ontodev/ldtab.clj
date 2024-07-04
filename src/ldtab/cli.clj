@@ -21,6 +21,8 @@
 
 (def init-options
   [["-h" "--help"]
+   ["-t" "--table TABLE" "Table"
+    :parse-fn #(identity %)]
    ["-c" "--connection" "Database connection uri"]])
 
 (def prefix-options
@@ -42,7 +44,8 @@
    ["-f" "--format FORMAT" "Output format"
     :parse-fn #(identity %)]
    ["-c" "--connection" "Database connection uri"]
-   ["-s" "--streaming"]])
+   ["-s" "--streaming"]
+   ["-l" "--sort" "Sort output in lexicographical order"]])
 
 (defn get-file-extension
   [path]
@@ -68,6 +71,59 @@
         "Please refer to the manual page for more information."]
        (str/join \newline)))
 
+(defn init-usage []
+  (->> ["ldtab-init"
+        ""
+        "Create a new LDTab database."
+        ""
+        "Usage: ldtab init [options] database"
+        ""
+        "Options:"
+        (str/join \newline (map #(str "  " (first %) "\t" (second %)) init-options))
+        ""
+        "Please refer to the manual page for more information."]
+       (str/join \newline)))
+
+;help message for prefix subcommand
+(defn prefix-usage []
+  (->> ["ldtab-prefix"
+        ""
+        "Define prefixes to shorten IRIs to CURIEs."
+        ""
+        "Usage: ldtab prefix [options] database [tsv]"
+        ""
+        "Options:"
+        (str/join \newline (map #(str "  " (first %) "\t" (second %) (if (= (count %) 3) (str "\t" (nth % 2)) "")) prefix-options))
+        ""
+        "Please refer to the manual page for more information."]
+       (str/join \newline)))
+
+(defn import-usage []
+  (->> ["ldtab-import"
+        ""
+        "Import an RDFXML file into the database."
+        ""
+        "Usage: ldtab import [options] database ontology"
+        ""
+        "Options:"
+        (str/join \newline (map #(str "  " (first %) "\t" (second %) (if (= (count %) 3) (str "\t" (nth % 2)) "")) import-options))
+        ""
+        "Please refer to the manual page for more information."]
+       (str/join \newline)))
+
+(defn export-usage []
+  (->> ["ldtab-export"
+        ""
+        "Export an LDTab database to TTL or TSV."
+        ""
+        "Usage: ldtab export [options] database output"
+        ""
+        "Options:"
+        (str/join \newline (map #(str "  " (first %) "\t" (second %) (if (= (count %) 3) (str "\t" (nth % 2)) "")) export-options))
+        ""
+        "Please refer to the manual page for more information."]
+       (str/join \newline)))
+
 (defn error-msg [errors]
   (str "The following errors occurred while parsing your command:\n\n"
        (str/join \newline errors)))
@@ -78,7 +134,7 @@
   (let [{:keys [options arguments errors summary]} (parse-opts command init-options)]
     (cond
       (:help options)
-      {:exit-message (usage summary) :ok? true}
+      {:exit-message (init-usage) :ok? true}
 
       errors
       {:exit-message (error-msg errors)}
@@ -95,7 +151,7 @@
   (let [{:keys [options arguments errors summary]} (parse-opts command prefix-options)]
     (cond
       (:help options)
-      {:exit-message (usage summary) :ok? true}
+      {:exit-message (prefix-usage) :ok? true}
 
       (and (:list options)
            (not= 2 (count arguments)))
@@ -123,7 +179,7 @@
   (let [{:keys [options arguments errors summary]} (parse-opts command import-options)]
     (cond
       (:help options)
-      {:exit-message (usage summary) :ok? true}
+      {:exit-message (import-usage) :ok? true}
 
       errors
       {:exit-message (error-msg errors)}
@@ -143,7 +199,7 @@
   (let [{:keys [options arguments errors summary]} (parse-opts command export-options)]
     (cond
       (:help options)
-      {:exit-message (usage summary) :ok? true}
+      {:exit-message (export-usage) :ok? true}
 
       errors
       {:exit-message (error-msg errors)}
@@ -156,6 +212,9 @@
 
       (not (contains? #{"ttl" "tsv"} (get-file-extension (nth arguments 2))))
       {:exit-message (str "Invalid output format: " (get-file-extension (nth arguments 2)))}
+
+      (and (:streaming options) (:sort options))
+      {:exit-message "Invalid input: --sort and --streaming are mutually exclusive."}
 
       :else
       {:action command})))
@@ -192,18 +251,22 @@
   (println msg)
   (System/exit status))
 
-
-;TODO handle options for subcommand
-
+(defn file-exists?
+  [path]
+  (.exists (io/as-file path)))
 
 (defn ldtab-init
   [command]
   (let [{:keys [options arguments errors summary]} (parse-opts command import-options)
         db (second arguments)
-        database-connection (:connection options)]
+        database-connection (:connection options)
+        table (:table options)
+        table (if table table "statement")]
     (if database-connection
-      (init-db/initialise-database db);expects a connection-uri
-      (init-db/create-sql-database db))));expects the name for the database 
+      (init-db/initialise-database db table);expects a connection-uri
+      (if (file-exists? db)
+        (init-db/add-table db table)
+        (init-db/create-sql-database db table))))) ;expects the name for the database
 
 ;TODO handle options for subcommend
 (defn ldtab-import
@@ -212,11 +275,10 @@
         db (second arguments)
         ontology (nth arguments 2)
         streaming (:streaming options)
-        table (:table options)
+        table (get options :table "statement")
         database-connection (:connection options)
 
         ;set defaults
-        table (if table table "statement")
         db-con-uri (if database-connection
                      db ;db is connection-uri
                      (str "jdbc:sqlite:"
@@ -234,12 +296,12 @@
         db (second arguments)
         output (nth arguments 2)
         streaming (:streaming options) ;TODO: should we always write with streams?
-        table (:table options)
+        sorting (:sort options)
+        table (get options :table "statement")
         database-connection (:connection options)
         extension (get-file-extension output);TODO: add options for output format
 
         ;set defaults
-        table (if table table "statement")
         db-con-uri (if database-connection
                      db ;db is connection-uri
                      (str "jdbc:sqlite:"
@@ -250,7 +312,7 @@
                      "tsv")]
     (if streaming
       (export-db/export-stream db-con-uri table extension output)
-      (export-db/export db-con-uri table extension output))))
+      (export-db/export db-con-uri table extension sorting output))))
 
 ;TODO handle options for subcommand
 ;TODO validate tsv file

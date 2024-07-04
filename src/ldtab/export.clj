@@ -43,19 +43,28 @@
    write ThickTriples in a TSV file to output."
   ([dp-path output]
    (export-tsv dp-path "statement" output))
-  ([db-connection table output]
+  ([db-connection table sorting-flag output]
    (let [data (jdbc/query db-connection [(str "SELECT * FROM " table)])
+         header (get-tsv-header data)
+         data (map #(triple-2-tsv %) data)
+         data (if sorting-flag
+                (sort data)
+                data)
          output-path (io/as-relative-path output)]
      (with-open [w (io/writer output-path :append true)]
-       (.write w (str (get-tsv-header data) "\n"))
+       (.write w (str header "\n"))
        (doseq [row data]
-         (.write w (str (triple-2-tsv row) "\n")))))))
+         (.write w (str row "\n")))))))
 
 (defn export-turtle
   ([db-connection output]
    (export-turtle db-connection "statement" output))
-  ([db-connection table output]
-   (let [data (jdbc/query db-connection [(str "SELECT * FROM " table)])
+  ([db-connection table sorting-flag output]
+   (let [data (if sorting-flag
+                (jdbc/query db-connection [(str "SELECT * FROM " table)]
+                            {:result-set-fn (fn [results] (sort-by triple-2-tsv results))})
+                (jdbc/query db-connection [(str "SELECT * FROM " table)]))
+
          prefix (jdbc/query db-connection [(str "SELECT * FROM prefix")])
          output-path (io/as-relative-path output)]
      (thick-2-rdf/triples-2-rdf-model-stream data prefix output-path))))
@@ -100,13 +109,13 @@
      (.finish writer-stream))))
 
 (defn export
-  [db-connection table file-format output]
+  [db-connection table file-format sorting-flag output]
   (let [db {:connection-uri db-connection}]
     (cond
       (= file-format "tsv")
-      (export-tsv db table output)
+      (export-tsv db table sorting-flag output)
       (= file-format "ttl")
-      (export-turtle db table output))))
+      (export-turtle db table sorting-flag output))))
 
 (defn export-stream
   [db-connection table file-format output]
