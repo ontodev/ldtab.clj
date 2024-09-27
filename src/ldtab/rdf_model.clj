@@ -46,7 +46,7 @@
         ^TypedInputStream in (RDFDataMgr/open rdf-path)]
     (cond
       (= extension "ttl") (.read (ModelFactory/createDefaultModel) in "" "TURTLE")
-      (= extension "nt") (.read (ModelFactory/createDefaultModel) in "" "NTRIPLES")
+      (= extension "nt") (.read (ModelFactory/createDefaultModel) in "" "N-TRIPLE")
       :else
         ^Model (.read (ModelFactory/createDefaultModel) in "")))) ; default to RDF/XML
 
