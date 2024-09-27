@@ -216,7 +216,9 @@
   "Given a set of thin triples,
     return a map from subjects to thin triples."
   [thin-triples]
-  (group-by (fn [^Triple x] (.getSubject x)) thin-triples))
+  (let [grouping (group-by (fn [^Triple x] (.getSubject x)) thin-triples)
+        dedup (map-on-hash-map-vals distinct grouping)]
+    dedup))
 
 (defn thin-2-thick-triple-raw
   "Given a root thin triple t (see function root-triples) and a map from subjects to thin triples in an RDF graph G,
