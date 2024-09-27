@@ -146,9 +146,12 @@
    (let [db {:connection-uri db-connection}
          iri2prefix (load-prefixes db)
          ^FileInputStream is (new FileInputStream rdf-path)
-         ^Iterator it (if (= (last (str/split rdf-path #"\.")) "ttl") ;guess input format
-                        (RDFDataMgr/createIteratorTriples is Lang/TTL "base")
-                        (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")) ;use RDFXML by default
+         ^String extension (last (str/split rdf-path #"\."))
+         ^Iterator it (cond ;guess file format
+                        (= extension "ttl") (RDFDataMgr/createIteratorTriples is Lang/TTL "base")
+                        (= extension "nt") (RDFDataMgr/createIteratorTriples is Lang/NT "base")
+                        :else ;use RDFXML by default
+                        (RDFDataMgr/createIteratorTriples is Lang/RDFXML "base")) 
          windowsize 500]
      (loop [backlog {}
             thin-backlog [nil nil nil]
@@ -209,4 +212,3 @@
       (println t))))
 
   ;(time (import-rdf-stream (first args) (second args) "graph")))
-
