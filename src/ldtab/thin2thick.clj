@@ -141,6 +141,30 @@
                            datatype))
      :else "ERROR")))
 
+
+(defn existential-blanknode-2-triples
+  [existential-blanknode]
+  ;(print "existblanknode: " existential-blanknode)
+  (let [blanknode (:subject existential-blanknode)
+        object (:object existential-blanknode)
+        datatype (:datatype existential-blanknode)
+        triples (if (= datatype "_JSONMAP")
+                  (map (fn [[k v]] {:subject blanknode,
+                                    :predicate k,
+                                    :object (get (first v) "object"),
+                                    :datatype (get (first v) "datatype")}) object)
+                  [existential-blanknode])]
+  ;(print "translated: " triples)
+    triples))
+
+(defn split-existential-blanknode-encoding
+  [triples]
+  (let [existential-blanknodes (filter (fn [x] (is-wiring-blanknode (:subject x))) triples)
+        triples (remove (fn [x] (is-wiring-blanknode (:subject x))) triples)
+        existential-blanknode-triples (mapcat existential-blanknode-2-triples existential-blanknodes)
+        triples (concat existential-blanknode-triples triples)]
+    triples))
+
 (defn encode-object
   "Given a triple t = [s p o] and a map from subject nodes to its triples,
   returns predicate map for the o"
@@ -286,7 +310,8 @@
          rdf-lists (map rdf-list/encode-rdf-list annotations)
          sorted (map sort-json rdf-lists)
          hashed (map hash-existential-subject-blanknode sorted)
-         normalised (map #(cs/parse-string (cs/generate-string %)) hashed)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
+         split (split-existential-blanknode-encoding hashed)
+         normalised (map #(cs/parse-string (cs/generate-string %)) split)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
      normalised))
   ([triples iri2prefix]
    (let [raw-thick-triples (thin-2-thick-raw triples iri2prefix)
@@ -301,5 +326,6 @@
          rdf-lists (map rdf-list/encode-rdf-list annotations)
          sorted (map sort-json rdf-lists)
          hashed (map hash-existential-subject-blanknode sorted)
-         normalised (map #(cs/parse-string (cs/generate-string %)) hashed)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
+         split (split-existential-blanknode-encoding hashed)
+         normalised (map #(cs/parse-string (cs/generate-string %)) split)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
      normalised)))
