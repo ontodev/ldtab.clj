@@ -137,6 +137,7 @@
                 (translate-predicate-map (dissoc x "meta") prefix-2-base model)))))
     bnode))
 
+
 (defn parse-json
   [json]
   (let [success (try
@@ -145,6 +146,7 @@
         success (or (map? success)
                     (coll? success)
                     (seq? success))]
+
     (if success
       (cs/parse-string json)
       json)))
@@ -153,6 +155,35 @@
   [input]
   (and (string? input)
        (str/starts-with? input "<wiring:blanknode")))
+
+(defn blanknode-triple-map
+  [blanknode-triples]
+  (cs/generate-string
+    (into {}
+          (map (fn [{:keys [predicate object datatype]}]
+                 [predicate [{"object" (parse-json object),
+                              "datatype" datatype}]])
+               blanknode-triples))))
+
+
+(defn merge-existential-blanknodes
+  "Merge thin triples belonging to the same existential blank nodes into a 'raw' LDTab triple."
+  [triples]
+  (let [blanknodes (filter #(is-wiring-blanknode (:subject %)) triples)
+        blanknode-2-triples (group-by :subject blanknodes)
+        complex-blanknodes (into {} (filter (fn [[k v]] (> (count v) 1)) blanknode-2-triples))
+        triples (remove #(contains? complex-blanknodes (:subject %)) triples)
+        raw-blank-nodes (map (fn [[k v]] {:assertion (:assertion (first v)),
+                                          :retraction (:retraction (first v)),
+                                          :graph (:graph (first v)),
+                                          :subject k,
+                                          :predicate "unknown",
+                                          :object (blanknode-triple-map v),
+                                          :datatype "_JSONMAP",
+                                          :annotation (:annotation (first v))})
+                             complex-blanknodes)
+        final (concat triples raw-blank-nodes)]
+    final))
 
 (defn thick-2-rdf-model ^Model
   [thick-triple prefixes]
@@ -178,7 +209,8 @@
 
 (defn triples-2-rdf-model-stream
   [thick-triples prefixes output]
-  (let [out-stream (io/output-stream output)
+  (let [thick-triples (merge-existential-blanknodes thick-triples)
+        out-stream (io/output-stream output)
         model (set-prefix-map (ModelFactory/createDefaultModel) prefixes)
         prefix-map (.lock model)
         writer-stream (StreamRDFWriter/getWriterStream out-stream RDFFormat/TURTLE_BLOCKS)]
