@@ -1,5 +1,6 @@
 (ns ldtab.rdf-model
-  (:require [clojure.set :as set])
+  (:require [clojure.set :as set]
+           [clojure.string :as str])
   (:import [org.apache.jena.rdf.model ModelFactory Model StmtIterator Resource Property RDFNode Statement]
            [org.apache.jena.riot RDFDataMgr]
            [org.apache.jena.atlas.web TypedInputStream]))
@@ -38,39 +39,24 @@
         roots (filter (fn [^Resource x] (not (contains? blanknode-objects x))) subjects)]
     roots))
 
+(defn create-model
+  "Given a file path, return the format of the file."
+  [^String rdf-path]
+  (let [^String extension (last (str/split rdf-path #"\."))
+        ^TypedInputStream in (RDFDataMgr/open rdf-path)]
+    (cond
+      (= extension "ttl") (.read (ModelFactory/createDefaultModel) in "" "TURTLE")
+      (= extension "nt") (.read (ModelFactory/createDefaultModel) in "" "N-TRIPLE")
+      :else
+        ^Model (.read (ModelFactory/createDefaultModel) in "")))) ; default to RDF/XML
+
 (defn group-blank-node-paths
   "Given an RDF graph, group triples w.r.t. bank node paths
   (a blank node path is a path (s_1,p_1,o_1),...,(s_n,p_n,o_n) where
  o_i = s_{i+1} are blank nodes for 1 <= i <= n."
   [^String input]
-  (let [^TypedInputStream in (RDFDataMgr/open input)
-        ^Model model (.read (ModelFactory/createDefaultModel) in "")
+  (let [^Model model (create-model input)
         root-subjects (get-root-subjects model)
         subject-with-dependencies (map #(get-blanknode-dependencies % model) root-subjects)
         dependency-triples (map #(map (fn [^Statement x] (.asTriple x)) %) subject-with-dependencies)]
     dependency-triples))
-
-(defn group-blank-node-paths-n-triples
-  "Given an RDF graph, group triples w.r.t. bank node paths
-  (a blank node path is a path (s_1,p_1,o_1),...,(s_n,p_n,o_n) where
- o_i = s_{i+1} are blank nodes for 1 <= i <= n."
-  [input]
-  (let [in (RDFDataMgr/open input)
-        model (.read (ModelFactory/createDefaultModel) in "" "NTRIPLES")
-        root-subjects (get-root-subjects model)
-        subject-with-dependencies (map (fn [x] (get-blanknode-dependencies x model)) root-subjects)
-        dependency-triples (map #(map (fn [^Statement x] (.asTriple x)) %) subject-with-dependencies)]
-    dependency-triples))
-
-(defn group-blank-node-paths-turtle
-  "Given an RDF graph, group triples w.r.t. bank node paths
-  (a blank node path is a path (s_1,p_1,o_1),...,(s_n,p_n,o_n) where
- o_i = s_{i+1} are blank nodes for 1 <= i <= n."
-  [input]
-  (let [in (RDFDataMgr/open input)
-        model (.read (ModelFactory/createDefaultModel) in "")
-        root-subjects (get-root-subjects model)
-        subject-with-dependencies (map #(get-blanknode-dependencies % model) root-subjects)
-        dependency-triples (map #(map (fn [^Statement x] (.asTriple x)) %) subject-with-dependencies)]
-    dependency-triples))
-
