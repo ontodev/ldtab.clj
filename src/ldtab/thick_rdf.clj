@@ -137,7 +137,6 @@
                 (translate-predicate-map (dissoc x "meta") prefix-2-base model)))))
     bnode))
 
-
 (defn parse-json
   [json]
   (let [success (try
@@ -151,6 +150,15 @@
       (cs/parse-string json)
       json)))
 
+(defn parse-json-object
+  [json]
+  (let [object (:object json)
+        datatype (:datatype json)]
+    (if (or (= datatype "_JSONMAP")
+            (= datatype "_JSONLIST"))
+      (parse-json object)
+      object)))
+
 (defn is-wiring-blanknode
   [input]
   (and (string? input)
@@ -159,12 +167,11 @@
 (defn blanknode-triple-map
   [blanknode-triples]
   (cs/generate-string
-    (into {}
-          (map (fn [{:keys [predicate object datatype]}]
-                 [predicate [{"object" (parse-json object),
-                              "datatype" datatype}]])
-               blanknode-triples))))
-
+   (into {}
+         (map (fn [{:keys [predicate object datatype]}]
+                [predicate [{"object" (parse-json object),
+                             "datatype" datatype}]])
+              blanknode-triples))))
 
 (defn merge-existential-blanknodes
   "Merge thin triples belonging to the same existential blank nodes into a 'raw' LDTab triple."
@@ -190,7 +197,7 @@
   (let [;{:keys [assertion retraction graph s p o datatype annotation]} thick-triple 
         model (set-prefix-map (ModelFactory/createDefaultModel) prefixes)
         prefix-2-base (get-prefix-map prefixes)
-        tt {"object" (parse-json (:object thick-triple))
+        tt {"object" (parse-json-object thick-triple)
             "datatype" (:datatype thick-triple)}
         ;subject (translate-iri (:subject thick-triple) prefix-2-base model) 
         ;provisional handling of GCIs (with JSON objects in the position of subject column)
