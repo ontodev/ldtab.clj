@@ -5,7 +5,9 @@
             [ldtab.rdf-list-handling :as rdf-list]
             [ldtab.gci-handling :as gci]
             [cheshire.core :as cs])
-  (:import [org.apache.jena.graph NodeFactory Triple Node])
+  (:import [org.apache.jena.graph NodeFactory Triple Node]
+           [java.security MessageDigest]
+           [java.math BigInteger])
            ;[org.apache.jena.rdf.model ModelFactory Model StmtIterator Resource Property RDFNode Statement])
   (:gen-class))
 
@@ -16,12 +18,19 @@
   (and (string? input)
        (str/starts-with? input "<wiring:blanknode")))
 
+(defn sha256
+  "Calculate a SHA-256 digest for a given UTF-8 string."
+  [^String input]
+  (let [md (MessageDigest/getInstance "SHA-256")]
+    (.update md (.getBytes input "UTF-8"))
+    (format "%064x" (BigInteger. 1 (.digest md)))))
+
 (defn hash-existential-subject-blanknode
   [triple]
   (if (is-wiring-blanknode (:subject triple))
     (assoc triple
            :subject
-           (str  "<wiring:blanknode:" (hash (:object triple)) ">"))
+           (str  "<wiring:blanknode:" (sha256 (cs/generate-string (dissoc triple :subject))) ">"))
     triple))
 
 ;TODO: add support for user input prefixes (using prefix table)
@@ -140,7 +149,6 @@
                            (str "@" language)
                            datatype))
      :else "ERROR")))
-
 
 (defn existential-blanknode-2-triples
   [existential-blanknode]
