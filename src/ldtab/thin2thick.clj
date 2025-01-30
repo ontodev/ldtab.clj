@@ -12,6 +12,8 @@
   (:gen-class))
 
 (declare node-2-thick-map)
+(declare sort-json)
+(declare sort-string-json)
 
 (defn is-wiring-blanknode
   [input]
@@ -30,7 +32,7 @@
   (if (is-wiring-blanknode (:subject triple))
     (assoc triple
            :subject
-           (str  "<wiring:blanknode:" (sha256 (cs/generate-string (dissoc triple :subject))) ">"))
+           (str  "<wiring:blanknode:" (sha256 (cs/generate-string (sort-string-json (cs/parse-string (cs/generate-string (:object triple)))))) ">"))
     triple))
 
 ;TODO: add support for user input prefixes (using prefix table)
@@ -152,7 +154,6 @@
 
 (defn existential-blanknode-2-triples
   [existential-blanknode]
-  ;(print "existblanknode: " existential-blanknode)
   (let [blanknode (:subject existential-blanknode)
         object (:object existential-blanknode)
         datatype (:datatype existential-blanknode)
@@ -162,7 +163,6 @@
                                     :object (get (first v) "object"),
                                     :datatype (get (first v) "datatype")}) object)
                   [existential-blanknode])]
-  ;(print "translated: " triples)
     triples))
 
 (defn split-existential-blanknode-encoding
@@ -233,6 +233,39 @@
         root (set/difference subjects object-blanknode)
         root-triples (filter (fn [^Triple x] (contains? root (.getSubject x))) triples)]
     root-triples))
+
+
+;this is the same as sort-json but keys of the JSON value are expected to be strings
+
+
+(defn sort-string-json
+  "Given a JSON value, return a lexicographically ordered representation."
+  [m]
+  (cond
+    ; sort RDF lists
+    (and (map? m)
+         (contains? m "datatype")
+         (= (get m "datatype") "_JSONLIST"))
+    (let [sorted-list {:datatype "_JSONLIST", :object (map sort-string-json (get m "object"))}]
+      (if (contains? m "subject") ; top-level RDF list
+        (into (sorted-map) (merge sorted-list
+                                  {:subject (sort-string-json (get m "subject"))
+                                   :predicate (:predicate m)
+                                   :graph (:graph m)
+                                   :assertion (:assertion m)
+                                   :retraction (:retraction m)
+                                   :annotation (:annotation m)}))
+        (into (sorted-map) sorted-list))); nested RDF list
+
+    (map? m)
+    (into (sorted-map) (map-on-hash-map-vals sort-string-json m)) ; sort by key
+
+    (coll? m)
+    (vec (map cs/parse-string ; sort by string comparison
+              (sort (map #(cs/generate-string (sort-string-json %)) m))))
+
+    :else
+    m))
 
 ;NB: sorting transfoms keywords to strings 
 (defn sort-json
