@@ -159,10 +159,10 @@
       (parse-json object)
       object)))
 
-(defn is-wiring-blanknode
+(defn is-ldtab-blanknode
   [input]
   (and (string? input)
-       (str/starts-with? input "<wiring:blanknode")))
+       (str/starts-with? input "<ldtab:blanknode")))
 
 (defn blanknode-triple-map
   [blanknode-triples]
@@ -176,7 +176,7 @@
 (defn merge-existential-blanknodes
   "Merge thin triples belonging to the same existential blank nodes into a 'raw' LDTab triple."
   [triples]
-  (let [blanknodes (filter #(is-wiring-blanknode (:subject %)) triples)
+  (let [blanknodes (filter #(is-ldtab-blanknode (:subject %)) triples)
         blanknode-2-triples (group-by :subject blanknodes)
         complex-blanknodes (into {} (filter (fn [[k v]] (> (count v) 1)) blanknode-2-triples))
         triples (remove #(contains? complex-blanknodes (:subject %)) triples)
@@ -210,8 +210,8 @@
         annotation (parse-json (:annotation thick-triple))]
     (when annotation
       (translate-annotation subject predicate object annotation prefix-2-base model))
-    (if (is-wiring-blanknode subject-json)
-      model ;remove generated wiring:blank nodes
+    (if (is-ldtab-blanknode subject-json)
+      model ;remove generated ldtab:blank nodes
       (.add model subject predicate object))))
 
 (defn triples-2-rdf-model-stream

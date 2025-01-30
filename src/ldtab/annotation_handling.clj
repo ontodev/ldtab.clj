@@ -126,7 +126,7 @@
 
      The raw thick triple of an OWL annotation
 
-     {:subject wiring:blanknode:G__1130,
+     {:subject ldtab:blanknode:G__1130,
       :predicate owl:Axiom,
       :object {obo:IAO_0010000 [{:object obo:050-003}],
                owl:annotatedTarget [{:object \"literal\"}],

@@ -15,10 +15,10 @@
 (declare sort-json)
 (declare sort-string-json)
 
-(defn is-wiring-blanknode
+(defn is-ldtab-blanknode
   [input]
   (and (string? input)
-       (str/starts-with? input "<wiring:blanknode")))
+       (str/starts-with? input "<ldtab:blanknode")))
 
 (defn sha256
   "Calculate a SHA-256 digest for a given UTF-8 string."
@@ -29,10 +29,10 @@
 
 (defn hash-existential-subject-blanknode
   [triple]
-  (if (is-wiring-blanknode (:subject triple))
+  (if (is-ldtab-blanknode (:subject triple))
     (assoc triple
            :subject
-           (str  "<wiring:blanknode:" (sha256 (cs/generate-string (sort-string-json (cs/parse-string (cs/generate-string (:object triple)))))) ">"))
+           (str  "<ldtab:blanknode:" (sha256 (cs/generate-string (sort-string-json (cs/parse-string (cs/generate-string (:object triple)))))) ">"))
     triple))
 
 ;TODO: add support for user input prefixes (using prefix table)
@@ -88,9 +88,9 @@
   "Given a set of triples,
     identify root blank nodes and add triples of the form
 
-    [wiring:blanknode:id type _:blankNode]
+    [ldtab:blanknode:id type _:blankNode]
 
-    where 'wiring:blanknode:id' is a newly generated subject,
+    where 'ldtab:blanknode:id' is a newly generated subject,
     type is the rdf:type of the identified root _:blankNode,
     and _:blankNode is the root node. 
 
@@ -104,7 +104,7 @@
 
     the following triple would be added:
 
-       [wiring:blanknode:1, rdf:type, _:B] 
+       [ldtab:blanknode:1, rdf:type, _:B] 
 
     Explanation:
     We collapse blank nodes into JSON maps.
@@ -118,11 +118,11 @@
         blank-roots (filter (fn [^Node x] (.isBlank x)) root)
         ;TODO blank-leaves also need to be skolemised:
         ;for a given blank-leaf [s p _b:leaf] 
-        ;we need to add the triple [_b:leaf rdf:type wiring:blanknode]
+        ;we need to add the triple [_b:leaf rdf:type ldtab:blanknode]
         ;so that we collapse the blank node into it's skolem form
 
-        additions (map (fn [^Node x] (new Triple (NodeFactory/createURI (str "wiring:blanknode:" (gensym)))
-                                    ;(NodeFactory/createURI "wiring:blanknode") 
+        additions (map (fn [^Node x] (new Triple (NodeFactory/createURI (str "ldtab:blanknode:" (gensym)))
+                                    ;(NodeFactory/createURI "ldtab:blanknode") 
                                           (get-type (get subject-to-triples x))
                                           x)) blank-roots)]
 
@@ -167,8 +167,8 @@
 
 (defn split-existential-blanknode-encoding
   [triples]
-  (let [existential-blanknodes (filter (fn [x] (is-wiring-blanknode (:subject x))) triples)
-        triples (remove (fn [x] (is-wiring-blanknode (:subject x))) triples)
+  (let [existential-blanknodes (filter (fn [x] (is-ldtab-blanknode (:subject x))) triples)
+        triples (remove (fn [x] (is-ldtab-blanknode (:subject x))) triples)
         existential-blanknode-triples (mapcat existential-blanknode-2-triples existential-blanknodes)
         triples (concat existential-blanknode-triples triples)]
     triples))
