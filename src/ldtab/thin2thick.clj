@@ -1,6 +1,7 @@
 (ns ldtab.thin2thick
   (:require [clojure.set :as set]
             [clojure.string :as str]
+            [clojure.walk :as walk]
             [ldtab.annotation-handling :as ann]
             [ldtab.rdf-list-handling :as rdf-list]
             [ldtab.gci-handling :as gci]
@@ -14,6 +15,7 @@
 (declare node-2-thick-map)
 (declare sort-json)
 (declare sort-string-json)
+(declare expand-curies-in-json)
 
 (defn is-ldtab-blanknode
   [input]
@@ -28,12 +30,20 @@
     (format "%064x" (BigInteger. 1 (.digest md)))))
 
 (defn hash-existential-subject-blanknode
-  [triple]
+  ([triple]
   (if (is-ldtab-blanknode (:subject triple))
-    (assoc triple
-           :subject
-           (str  "<ldtab:blanknode:" (sha256 (cs/generate-string (sort-string-json (cs/parse-string (cs/generate-string (:object triple)))))) ">"))
+    (let [string-to-hash (cs/generate-string (sort-string-json (cs/parse-string (cs/generate-string (:object triple)))))]
+      (assoc triple
+             :subject
+             (str  "<ldtab:blanknode:" (sha256 string-to-hash) ">"))
+    )
     triple))
+  ([triple iri2prefix]
+   (let  [object (:object triple)
+          expansion (expand-curies-in-json object iri2prefix)
+          triple (assoc triple :object expansion)
+          hash-triple (hash-existential-subject-blanknode triple)]
+     hash-triple)))
 
 ;TODO: add support for user input prefixes (using prefix table)
 (defn curify
@@ -51,6 +61,23 @@
     (if found
       (str/replace uri (:base found) (str (:prefix found) ":"))
       (str "<" uri ">"))))
+
+(defn expand-with
+  [^String curie iri2prefix]
+  (let [[prefix local] (str/split curie #":" 2)
+        found (some #(when (= (:prefix %) prefix) %) iri2prefix)]
+    (if found
+      (str "<" (:base found) local ">")
+      curie)))
+
+(defn expand-curies-in-json
+  [json iri2prefix]
+  (walk/postwalk
+    (fn [x]
+      (if (string? x)
+        (expand-with x iri2prefix)
+        x))
+    json))
 
 (defn map-on-hash-map-vals
   "Given a hashmap m and a function f, 
@@ -368,7 +395,7 @@
                              %) gcis)
          rdf-lists (map rdf-list/encode-rdf-list annotations)
          sorted (map sort-json rdf-lists)
-         hashed (map hash-existential-subject-blanknode sorted)
+         hashed (map #(hash-existential-subject-blanknode % iri2prefix) sorted)
          split (split-existential-blanknode-encoding hashed)
          normalised (map #(cs/parse-string (cs/generate-string %)) split)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
      normalised)))
