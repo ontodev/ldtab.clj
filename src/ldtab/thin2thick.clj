@@ -15,7 +15,7 @@
 (declare node-2-thick-map)
 (declare sort-json)
 (declare sort-string-json)
-(declare expand-curies-in-json)
+;(declare expand-curies-in-json)
 
 (defn is-ldtab-blanknode
   [input]
@@ -28,22 +28,6 @@
   (let [md (MessageDigest/getInstance "SHA-256")]
     (.update md (.getBytes input "UTF-8"))
     (format "%064x" (BigInteger. 1 (.digest md)))))
-
-(defn hash-existential-subject-blanknode
-  ([triple]
-  (if (is-ldtab-blanknode (:subject triple))
-    (let [string-to-hash (cs/generate-string (sort-string-json (cs/parse-string (cs/generate-string (:object triple)))))]
-      (assoc triple
-             :subject
-             (str  "<ldtab:blanknode:" (sha256 string-to-hash) ">"))
-    )
-    triple))
-  ([triple iri2prefix]
-   (let  [object (:object triple)
-          expansion (expand-curies-in-json object iri2prefix)
-          triple (assoc triple :object expansion)
-          hash-triple (hash-existential-subject-blanknode triple)]
-     hash-triple)))
 
 ;TODO: add support for user input prefixes (using prefix table)
 (defn curify
@@ -63,6 +47,7 @@
       (str "<" uri ">"))))
 
 (defn expand-with
+  "Turn a CURIE into a full IRI using iri2prefix"
   [^String curie iri2prefix]
   (let [[prefix local] (str/split curie #":" 2)
         found (some #(when (= (:prefix %) prefix) %) iri2prefix)]
@@ -71,6 +56,7 @@
       curie)))
 
 (defn expand-curies-in-json
+  "Walk a (parsed) JSON value and expand any CURIEs into full IRis."
   [json iri2prefix]
   (walk/postwalk
     (fn [x]
@@ -78,6 +64,51 @@
         (expand-with x iri2prefix)
         x))
     json))
+
+(defn contract-with
+  "Turn a full IRI (e.g., <http://example.org/foo>) into a CURIE using iri2prefix,
+   If no base matches, return the original string unchanged.
+   Prefers the *longest* matching base"
+  ^String
+  [^String s iri2prefix]
+  (let [iri (if (and (str/starts-with? s "<") (str/ends-with? s ">"))
+              (subs s 1 (dec (count s))) ; strip angle brackets
+              s)
+        candidates (seq (filter #(str/starts-with? iri (:base %)) iri2prefix))
+        best       (when candidates
+                     (apply max-key #(count (:base %)) candidates))]
+    (if best
+      (str (:prefix best) ":" (subs iri (count (:base best))))
+      s)))
+
+(defn contract-iris-in-json
+  "Walk a (parsed) JSON value and contract any string IRIs into CURIEs."
+  [json iri2prefix]
+  (walk/postwalk
+    (fn [x]
+      (if (string? x)
+        (contract-with x iri2prefix)
+        x))
+    json))
+
+
+(defn hash-existential-subject-blanknode
+  ([triple]
+  (if (is-ldtab-blanknode (:subject triple))
+    (let [string-to-hash (cs/generate-string (sort-string-json (cs/parse-string (cs/generate-string (:object triple)))))]
+      (assoc triple
+             :subject
+             (str  "<ldtab:blanknode:" (sha256 string-to-hash) ">"))
+    )
+    triple))
+  ([triple iri2prefix]
+   (let  [object (:object triple)
+          expansion (expand-curies-in-json object iri2prefix)
+          triple (assoc triple :object expansion)
+          hash-triple (hash-existential-subject-blanknode triple)
+          contraction (contract-iris-in-json hash-triple iri2prefix)]
+     contraction)))
+
 
 (defn map-on-hash-map-vals
   "Given a hashmap m and a function f, 
