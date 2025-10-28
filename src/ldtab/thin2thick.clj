@@ -231,6 +231,36 @@
         triples (concat existential-blanknode-triples triples)]
     triples))
 
+
+(defn is-subject-object
+  [triple]
+  (map? (:subject triple)))
+
+
+(defn subject-json-object-2-triples
+  [triple]
+  (let [subject (:subject triple)
+        string-to-hash (cs/generate-string (sort-string-json subject))
+        blanknode (str  "<ldtab:blanknode:" (sha256 string-to-hash) ">")
+        triples (map (fn [[k v]] {:subject blanknode,
+                                    :predicate k,
+                                    :object (get (first v) "object"),
+                                    :datatype (get (first v) "datatype")}) subject)
+        triples (conj triples
+                      {:subject blanknode,
+                       :predicate (:predicate triple),
+                       :object (:object triple),
+                       :datatype (:datatype triple)})]
+    triples))
+
+(defn split-subject-json-objects
+  [triples]
+  (let [subject-objects (filter (fn [x] (is-subject-object x)) triples)
+        triples (remove (fn [x] (is-subject-object x)) triples)
+        subject-object-triples (mapcat subject-json-object-2-triples subject-objects)
+        triples (concat subject-object-triples triples)]
+    triples))
+
 (defn encode-object
   "Given a triple t = [s p o] and a map from subject nodes to its triples,
   returns predicate map for the o"
@@ -411,8 +441,9 @@
          rdf-lists (map rdf-list/encode-rdf-list annotations)
          sorted (map sort-json rdf-lists)
          hashed (map hash-existential-subject-blanknode sorted)
-         split (split-existential-blanknode-encoding hashed)
-         normalised (map #(cs/parse-string (cs/generate-string %)) split)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
+         split-objects (split-existential-blanknode-encoding hashed)
+         split-subjects (split-subject-json-objects split-objects)
+         normalised (map #(cs/parse-string (cs/generate-string %)) split-subjects)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
      normalised))
   ([triples iri2prefix]
    (let [raw-thick-triples (thin-2-thick-raw triples iri2prefix)
@@ -427,6 +458,7 @@
          rdf-lists (map rdf-list/encode-rdf-list annotations)
          sorted (map sort-json rdf-lists)
          hashed (map #(hash-existential-subject-blanknode % iri2prefix) sorted)
-         split (split-existential-blanknode-encoding hashed)
-         normalised (map #(cs/parse-string (cs/generate-string %)) split)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
+         split-objects (split-existential-blanknode-encoding hashed)
+         split-subjects (split-subject-json-objects split-objects)
+         normalised (map #(cs/parse-string (cs/generate-string %)) split-subjects)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
      normalised)))
