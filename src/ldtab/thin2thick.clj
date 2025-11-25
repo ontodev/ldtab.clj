@@ -102,12 +102,14 @@
     )
     triple))
   ([triple iri2prefix]
-   (let  [object (:object triple)
-          expansion (expand-curies-in-json object iri2prefix)
-          triple (assoc triple :object expansion)
-          hash-triple (hash-existential-subject-blanknode triple)
-          contraction (contract-iris-in-json hash-triple iri2prefix)]
-     contraction)))
+   (if (is-ldtab-blanknode (:subject triple))
+     (let  [object (:object triple)
+            expansion (expand-curies-in-json object iri2prefix)
+            triple (assoc triple :object expansion)
+            hash-triple (hash-existential-subject-blanknode triple)
+            contraction (contract-iris-in-json hash-triple iri2prefix)]
+       contraction)
+     triple)))
 
 
 (defn map-on-hash-map-vals
