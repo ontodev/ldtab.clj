@@ -240,9 +240,16 @@
 
 
 (defn subject-json-object-2-triples
-  [triple]
+  [triple iri2prefix]
   (let [subject (:subject triple)
-        string-to-hash (cs/generate-string (sort-string-json subject))
+        object (:object triple)
+        blank (assoc subject (:predicate triple)
+                       [{:object object
+                         :datatype (:datatype triple)}])
+
+        expansion (expand-curies-in-json blank iri2prefix)
+        string-to-hash (cs/generate-string (sort-string-json expansion))
+
         blanknode (str  "<ldtab:blanknode:" (sha256 string-to-hash) ">")
         triples (map (fn [[k v]] {:subject blanknode,
                                     :predicate k,
@@ -252,14 +259,15 @@
                       {:subject blanknode,
                        :predicate (:predicate triple),
                        :object (:object triple),
-                       :datatype (:datatype triple)})]
+                       :datatype (:datatype triple)
+                       :annotation (:annotation triple)})]
     triples))
 
 (defn split-subject-json-objects
-  [triples]
+  [triples iri2prefix]
   (let [subject-objects (filter (fn [x] (is-subject-object x)) triples)
         triples (remove (fn [x] (is-subject-object x)) triples)
-        subject-object-triples (mapcat subject-json-object-2-triples subject-objects)
+        subject-object-triples (mapcat #(subject-json-object-2-triples % iri2prefix) subject-objects)
         triples (concat subject-object-triples triples)]
     triples))
 
@@ -461,6 +469,6 @@
          sorted (map sort-json rdf-lists)
          hashed (map #(hash-existential-subject-blanknode % iri2prefix) sorted)
          split-objects (split-existential-blanknode-encoding hashed)
-         split-subjects (split-subject-json-objects split-objects)
+         split-subjects (split-subject-json-objects split-objects iri2prefix)
          normalised (map #(cs/parse-string (cs/generate-string %)) split-subjects)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
      normalised)))
