@@ -1,28 +1,33 @@
 (ns ldtab.thin2thick
   (:require [clojure.set :as set]
             [clojure.string :as str]
+            [clojure.walk :as walk]
             [ldtab.annotation-handling :as ann]
             [ldtab.rdf-list-handling :as rdf-list]
             [ldtab.gci-handling :as gci]
             [cheshire.core :as cs])
-  (:import [org.apache.jena.graph NodeFactory Triple Node])
+  (:import [org.apache.jena.graph NodeFactory Triple Node]
+           [java.security MessageDigest]
+           [java.math BigInteger])
            ;[org.apache.jena.rdf.model ModelFactory Model StmtIterator Resource Property RDFNode Statement])
   (:gen-class))
 
 (declare node-2-thick-map)
+(declare sort-json)
+(declare sort-string-json)
+;(declare expand-curies-in-json)
 
-(defn is-wiring-blanknode
+(defn is-ldtab-blanknode
   [input]
   (and (string? input)
-       (str/starts-with? input "<wiring:blanknode")))
+       (str/starts-with? input "<ldtab:blanknode")))
 
-(defn hash-existential-subject-blanknode
-  [triple]
-  (if (is-wiring-blanknode (:subject triple))
-    (assoc triple
-           :subject
-           (str  "<wiring:blanknode:" (hash (:object triple)) ">"))
-    triple))
+(defn sha256
+  "Calculate a SHA-256 digest for a given UTF-8 string."
+  [^String input]
+  (let [md (MessageDigest/getInstance "SHA-256")]
+    (.update md (.getBytes input "UTF-8"))
+    (format "%064x" (BigInteger. 1 (.digest md)))))
 
 ;TODO: add support for user input prefixes (using prefix table)
 (defn curify
@@ -40,6 +45,72 @@
     (if found
       (str/replace uri (:base found) (str (:prefix found) ":"))
       (str "<" uri ">"))))
+
+(defn expand-with
+  "Turn a CURIE into a full IRI using iri2prefix"
+  [^String curie iri2prefix]
+  (let [[prefix local] (str/split curie #":" 2)
+        found (some #(when (= (:prefix %) prefix) %) iri2prefix)]
+    (if found
+      (str "<" (:base found) local ">")
+      curie)))
+
+(defn expand-curies-in-json
+  "Walk a (parsed) JSON value and expand any CURIEs into full IRis."
+  [json iri2prefix]
+  (walk/postwalk
+    (fn [x]
+      (if (string? x)
+        (expand-with x iri2prefix)
+        x))
+    json))
+
+(defn contract-with
+  "Turn a full IRI (e.g., <http://example.org/foo>) into a CURIE using iri2prefix,
+   If no base matches, return the original string unchanged.
+   Prefers the *longest* matching base"
+  ^String
+  [^String s iri2prefix]
+  (let [iri (if (and (str/starts-with? s "<") (str/ends-with? s ">"))
+              (subs s 1 (dec (count s))) ; strip angle brackets
+              s)
+        candidates (seq (filter #(str/starts-with? iri (:base %)) iri2prefix))
+        best       (when candidates
+                     (apply max-key #(count (:base %)) candidates))]
+    (if best
+      (str (:prefix best) ":" (subs iri (count (:base best))))
+      s)))
+
+(defn contract-iris-in-json
+  "Walk a (parsed) JSON value and contract any string IRIs into CURIEs."
+  [json iri2prefix]
+  (walk/postwalk
+    (fn [x]
+      (if (string? x)
+        (contract-with x iri2prefix)
+        x))
+    json))
+
+
+(defn hash-existential-subject-blanknode
+  ([triple]
+  (if (is-ldtab-blanknode (:subject triple))
+    (let [string-to-hash (cs/generate-string (sort-string-json (cs/parse-string (cs/generate-string (:object triple)))))]
+      (assoc triple
+             :subject
+             (str  "<ldtab:blanknode:" (sha256 string-to-hash) ">"))
+    )
+    triple))
+  ([triple iri2prefix]
+   (if (is-ldtab-blanknode (:subject triple))
+     (let  [object (:object triple)
+            expansion (expand-curies-in-json object iri2prefix)
+            triple (assoc triple :object expansion)
+            hash-triple (hash-existential-subject-blanknode triple)
+            contraction (contract-iris-in-json hash-triple iri2prefix)]
+       contraction)
+     triple)))
+
 
 (defn map-on-hash-map-vals
   "Given a hashmap m and a function f, 
@@ -77,9 +148,9 @@
   "Given a set of triples,
     identify root blank nodes and add triples of the form
 
-    [wiring:blanknode:id type _:blankNode]
+    [ldtab:blanknode:id type _:blankNode]
 
-    where 'wiring:blanknode:id' is a newly generated subject,
+    where 'ldtab:blanknode:id' is a newly generated subject,
     type is the rdf:type of the identified root _:blankNode,
     and _:blankNode is the root node. 
 
@@ -93,7 +164,7 @@
 
     the following triple would be added:
 
-       [wiring:blanknode:1, rdf:type, _:B] 
+       [ldtab:blanknode:1, rdf:type, _:B] 
 
     Explanation:
     We collapse blank nodes into JSON maps.
@@ -107,11 +178,11 @@
         blank-roots (filter (fn [^Node x] (.isBlank x)) root)
         ;TODO blank-leaves also need to be skolemised:
         ;for a given blank-leaf [s p _b:leaf] 
-        ;we need to add the triple [_b:leaf rdf:type wiring:blanknode]
+        ;we need to add the triple [_b:leaf rdf:type ldtab:blanknode]
         ;so that we collapse the blank node into it's skolem form
 
-        additions (map (fn [^Node x] (new Triple (NodeFactory/createURI (str "wiring:blanknode:" (gensym)))
-                                    ;(NodeFactory/createURI "wiring:blanknode") 
+        additions (map (fn [^Node x] (new Triple (NodeFactory/createURI (str "ldtab:blanknode:" (gensym)))
+                                    ;(NodeFactory/createURI "ldtab:blanknode") 
                                           (get-type (get subject-to-triples x))
                                           x)) blank-roots)]
 
@@ -141,10 +212,8 @@
                            datatype))
      :else "ERROR")))
 
-
 (defn existential-blanknode-2-triples
   [existential-blanknode]
-  ;(print "existblanknode: " existential-blanknode)
   (let [blanknode (:subject existential-blanknode)
         object (:object existential-blanknode)
         datatype (:datatype existential-blanknode)
@@ -154,15 +223,52 @@
                                     :object (get (first v) "object"),
                                     :datatype (get (first v) "datatype")}) object)
                   [existential-blanknode])]
-  ;(print "translated: " triples)
     triples))
 
 (defn split-existential-blanknode-encoding
   [triples]
-  (let [existential-blanknodes (filter (fn [x] (is-wiring-blanknode (:subject x))) triples)
-        triples (remove (fn [x] (is-wiring-blanknode (:subject x))) triples)
+  (let [existential-blanknodes (filter (fn [x] (is-ldtab-blanknode (:subject x))) triples)
+        triples (remove (fn [x] (is-ldtab-blanknode (:subject x))) triples)
         existential-blanknode-triples (mapcat existential-blanknode-2-triples existential-blanknodes)
         triples (concat existential-blanknode-triples triples)]
+    triples))
+
+
+(defn is-subject-object
+  [triple]
+  (map? (:subject triple)))
+
+
+(defn subject-json-object-2-triples
+  [triple iri2prefix]
+  (let [subject (:subject triple)
+        object (:object triple)
+        blank (assoc subject (:predicate triple)
+                       [{:object object
+                         :datatype (:datatype triple)}])
+
+        expansion (expand-curies-in-json blank iri2prefix)
+        string-to-hash (cs/generate-string (sort-string-json expansion))
+
+        blanknode (str  "<ldtab:blanknode:" (sha256 string-to-hash) ">")
+        triples (map (fn [[k v]] {:subject blanknode,
+                                    :predicate k,
+                                    :object (get (first v) "object"),
+                                    :datatype (get (first v) "datatype")}) subject)
+        triples (conj triples
+                      {:subject blanknode,
+                       :predicate (:predicate triple),
+                       :object (:object triple),
+                       :datatype (:datatype triple)
+                       :annotation (:annotation triple)})]
+    triples))
+
+(defn split-subject-json-objects
+  [triples iri2prefix]
+  (let [subject-objects (filter (fn [x] (is-subject-object x)) triples)
+        triples (remove (fn [x] (is-subject-object x)) triples)
+        subject-object-triples (mapcat #(subject-json-object-2-triples % iri2prefix) subject-objects)
+        triples (concat subject-object-triples triples)]
     triples))
 
 (defn encode-object
@@ -225,6 +331,39 @@
         root (set/difference subjects object-blanknode)
         root-triples (filter (fn [^Triple x] (contains? root (.getSubject x))) triples)]
     root-triples))
+
+
+;this is the same as sort-json but keys of the JSON value are expected to be strings
+
+
+(defn sort-string-json
+  "Given a JSON value, return a lexicographically ordered representation."
+  [m]
+  (cond
+    ; sort RDF lists
+    (and (map? m)
+         (contains? m "datatype")
+         (= (get m "datatype") "_JSONLIST"))
+    (let [sorted-list {:datatype "_JSONLIST", :object (map sort-string-json (get m "object"))}]
+      (if (contains? m "subject") ; top-level RDF list
+        (into (sorted-map) (merge sorted-list
+                                  {:subject (sort-string-json (get m "subject"))
+                                   :predicate (:predicate m)
+                                   :graph (:graph m)
+                                   :assertion (:assertion m)
+                                   :retraction (:retraction m)
+                                   :annotation (:annotation m)}))
+        (into (sorted-map) sorted-list))); nested RDF list
+
+    (map? m)
+    (into (sorted-map) (map-on-hash-map-vals sort-string-json m)) ; sort by key
+
+    (coll? m)
+    (vec (map cs/parse-string ; sort by string comparison
+              (sort (map #(cs/generate-string (sort-string-json %)) m))))
+
+    :else
+    m))
 
 ;NB: sorting transfoms keywords to strings 
 (defn sort-json
@@ -312,8 +451,9 @@
          rdf-lists (map rdf-list/encode-rdf-list annotations)
          sorted (map sort-json rdf-lists)
          hashed (map hash-existential-subject-blanknode sorted)
-         split (split-existential-blanknode-encoding hashed)
-         normalised (map #(cs/parse-string (cs/generate-string %)) split)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
+         split-objects (split-existential-blanknode-encoding hashed)
+         split-subjects (split-subject-json-objects split-objects)
+         normalised (map #(cs/parse-string (cs/generate-string %)) split-subjects)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
      normalised))
   ([triples iri2prefix]
    (let [raw-thick-triples (thin-2-thick-raw triples iri2prefix)
@@ -327,7 +467,8 @@
                              %) gcis)
          rdf-lists (map rdf-list/encode-rdf-list annotations)
          sorted (map sort-json rdf-lists)
-         hashed (map hash-existential-subject-blanknode sorted)
-         split (split-existential-blanknode-encoding hashed)
-         normalised (map #(cs/parse-string (cs/generate-string %)) split)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
+         hashed (map #(hash-existential-subject-blanknode % iri2prefix) sorted)
+         split-objects (split-existential-blanknode-encoding hashed)
+         split-subjects (split-subject-json-objects split-objects iri2prefix)
+         normalised (map #(cs/parse-string (cs/generate-string %)) split-subjects)];TODO: stringify keys - this is a (probably an inefficient?) workaround 
      normalised)))
