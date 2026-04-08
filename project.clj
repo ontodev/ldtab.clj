@@ -12,7 +12,8 @@
                  [org.postgresql/postgresql "42.5.0"];PostgresSQL driver
                  [org.apache.jena/jena-core "4.4.0"]
                  [org.apache.jena/jena-arq "4.4.0"]
-                 [org.apache.jena/jena-iri "4.4.0"]]
+                 [org.apache.jena/jena-iri "4.4.0"]
+                 [org.slf4j/slf4j-simple "1.7.36"]]
   :plugins [[lein-cljfmt "0.7.0"]
             [lein-kibit "0.1.8"]] 
   :main ^:skip-aot ldtab.cli
