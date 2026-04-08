@@ -34,6 +34,8 @@
   [["-h" "--help"]
    ["-t" "--table TABLE" "Table"
     :parse-fn #(identity %)]
+   ["-g" "--graph GRAPH" "Graph"
+    :parse-fn #(identity %)]
    ["-c" "--connection" "Database connection uri"]
    ["-s" "--streaming"]])
 
@@ -276,6 +278,7 @@
         ontology (nth arguments 2)
         streaming (:streaming options)
         table (get options :table "statement")
+        graph (get options :graph "graph")
         database-connection (:connection options)
 
         ;set defaults
@@ -287,8 +290,8 @@
 
     ;'streaming' and 'in-memory' are separate implementations
     (if streaming
-      (import-db/import-rdf-stream db-con-uri table ontology "graph")
-      (import-db/import-rdf-model db-con-uri table ontology "graph"))))
+      (import-db/import-rdf-stream db-con-uri table ontology graph)
+      (import-db/import-rdf-model db-con-uri table ontology graph))))
 
 (defn ldtab-export
   [command]
