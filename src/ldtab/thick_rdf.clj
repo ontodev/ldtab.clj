@@ -164,67 +164,50 @@
   (and (string? input)
        (str/starts-with? input "<ldtab:blanknode")))
 
-(defn blanknode-triple-map
-  [blanknode-triples]
-  (cs/generate-string
-   (into {}
-         (map (fn [{:keys [predicate object datatype]}]
-                [predicate [{"object" (parse-json object),
-                             "datatype" datatype}]])
-              blanknode-triples))))
+(defn resolve-subject ^Resource
+  [subject-string prefix-2-base ^Model model skolem-bnode]
+  (let [subject-json (parse-json subject-string)]
+    (cond
+      skolem-bnode skolem-bnode
+      (string? subject-json) (translate-iri subject-json prefix-2-base model)
+      :else (translate-json-map subject-json prefix-2-base model))))
 
-(defn merge-existential-blanknodes
-  "Merge thin triples belonging to the same existential blank nodes into a 'raw' LDTab triple."
-  [triples]
-  (let [blanknodes (filter #(is-ldtab-blanknode (:subject %)) triples)
-        blanknode-2-triples (group-by :subject blanknodes)
-        complex-blanknodes (into {} (filter (fn [[k v]] (> (count v) 1)) blanknode-2-triples))
-        triples (remove #(contains? complex-blanknodes (:subject %)) triples)
-        raw-blank-nodes (map (fn [[k v]] {:assertion (:assertion (first v)),
-                                          :retraction (:retraction (first v)),
-                                          :graph (:graph (first v)),
-                                          :subject k,
-                                          :predicate "unknown",
-                                          :object (blanknode-triple-map v),
-                                          :datatype "_JSONMAP",
-                                          :annotation (:annotation (first v))})
-                             complex-blanknodes)
-        final (concat triples raw-blank-nodes)]
-    final))
+(defn thick-row->triples
+  [^Model model prefix-2-base skolem-bnode row]
+  (let [tt {"object" (parse-json-object row)
+            "datatype" (:datatype row)}
+        subject (resolve-subject (:subject row) prefix-2-base model skolem-bnode)
+        predicate (translate-property (:predicate row) prefix-2-base model)
+        object (translate-predicate-map tt prefix-2-base model)
+        annotation (parse-json (:annotation row))]
+    (when annotation
+      (translate-annotation subject predicate object annotation prefix-2-base model))
+    (.add model subject predicate object)))
 
 (defn thick-2-rdf-model ^Model
   [thick-triple prefixes]
-  (let [;{:keys [assertion retraction graph s p o datatype annotation]} thick-triple 
-        model (set-prefix-map (ModelFactory/createDefaultModel) prefixes)
+  (let [model (set-prefix-map (ModelFactory/createDefaultModel) prefixes)
         prefix-2-base (get-prefix-map prefixes)
-        tt {"object" (parse-json-object thick-triple)
-            "datatype" (:datatype thick-triple)}
-        ;subject (translate-iri (:subject thick-triple) prefix-2-base model) 
-        ;provisional handling of GCIs (with JSON objects in the position of subject column)
-        subject-json (parse-json (:subject thick-triple))
-        subject (if (string? subject-json)
-                  (translate-iri subject-json prefix-2-base model)
-                  (translate-json-map subject-json prefix-2-base model))
-        predicate (translate-property (:predicate thick-triple) prefix-2-base model)
-        object (translate-predicate-map tt prefix-2-base model)
-        annotation (parse-json (:annotation thick-triple))]
-    (when annotation
-      (translate-annotation subject predicate object annotation prefix-2-base model))
-    (if (is-ldtab-blanknode subject-json)
-      model ;remove generated ldtab:blank nodes
-      (.add model subject predicate object))))
+        skolem-bnode (when (is-ldtab-blanknode (:subject thick-triple))
+                       (.createResource model))]
+    (thick-row->triples model prefix-2-base skolem-bnode thick-triple)
+    model))
 
 (defn triples-2-rdf-model-stream
   [thick-triples prefixes output]
-  (let [thick-triples (merge-existential-blanknodes thick-triples)
-        out-stream (io/output-stream output)
+  (let [out-stream (io/output-stream output)
         model (set-prefix-map (ModelFactory/createDefaultModel) prefixes)
+        prefix-2-base (get-prefix-map prefixes)
         prefix-map (.lock model)
         writer-stream (StreamRDFWriter/getWriterStream out-stream RDFFormat/TURTLE_BLOCKS)]
     (.start writer-stream)
     (StreamRDFOps/sendPrefixesToStream prefix-map writer-stream)
-    (doseq [triple thick-triples]
-      (StreamRDFOps/sendTriplesToStream (.getGraph (thick-2-rdf-model triple prefixes)) writer-stream))
+    (doseq [[subject rows] (group-by :subject thick-triples)]
+      (let [m (set-prefix-map (ModelFactory/createDefaultModel) prefixes)
+            skolem-bnode (when (is-ldtab-blanknode subject) (.createResource m))]
+        (doseq [row rows]
+          (thick-row->triples m prefix-2-base skolem-bnode row))
+        (StreamRDFOps/sendTriplesToStream (.getGraph m) writer-stream)))
     (.finish writer-stream)))
 
 (defn load-db
